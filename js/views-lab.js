@@ -1,11 +1,14 @@
 /* BUILD tools: Wheel Fitment Lab, Mod Calculator, Sound Lab. */
 (function () {
-  const NS = window.NS, D = window.NS_DATA, F = D.fit;
+  const NS = window.NS, D = window.NS_DATA;
+  /* F reads the current car's fitment baseline (its own specs, or the built-in EK numbers). */
+  const F = new Proxy({}, { get: (_, k) => NS.fitBase(NS.veh())[k] });
   const { esc, money, num, icon, clamp } = NS;
 
   /* ================= FITMENT ================= */
   const fitState = () => {
-    if (!NS.ui.fit) {
+    if (!NS.ui.fit || NS.ui.fitFor !== NS.veh().id) {
+      NS.ui.fitFor = NS.veh().id;
       const w = NS.veh().wheel || {};
       const t = NS.parseTire(w.tire) || { tw: 185, ar: 65 };
       NS.ui.fit = { dia: w.dia || 14, width: w.width || 5.5, offset: w.offset ?? 45, tw: t.tw, ar: t.ar, drop: w.drop || 0 };
@@ -112,7 +115,7 @@
     const ctrl = (k, l, min, max, step, fmt) => `<div class="ctrl"><label class="lbl" for="fit-${k}">${l}</label><output id="fit-${k}-o">${fmt(s[k])}</output><input type="range" id="fit-${k}" data-in="fit" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${s[k]}"></div>`;
     const presetActive = (p) => p.dia === s.dia && p.width === s.width && p.offset === s.offset;
     return `${NS.subnav()}
-    <div class="page-head"><div><div class="eyebrow">WHEEL FITMENT LAB · ${esc(NS.veh().chassis)}</div><h1 class="h1" style="margin-top:6px">Will it fit, and will it rub?</h1><p class="lede">Compared to the factory 14x5.5 +45 with 185/65R14. Estimates for planning. Test-fit before you buy.</p></div></div>
+    <div class="page-head"><div><div class="eyebrow">WHEEL FITMENT LAB · ${esc(NS.veh().chassis)}</div><h1 class="h1" style="margin-top:6px">Will it fit, and will it rub?</h1><p class="lede">Compared to the factory ${F.stock.dia}x${F.stock.width} ${F.stock.offset >= 0 ? "+" : ""}${F.stock.offset} with ${F.stock.tw}/${F.stock.ar}R${F.stock.dia}${F.own ? " from this car's spec sheet" : ""}. Estimates for planning. Test-fit before you buy.</p></div></div>
     <div class="chips" style="margin-bottom:14px">${F.presets.map((p, i) => `<button class="chip" data-act="fit-preset" data-i="${i}" aria-pressed="${presetActive(p)}">${esc(p.n)}</button>`).join("")}</div>
     <div class="lab">
       <div class="stack">
@@ -123,11 +126,11 @@
         <div class="risk" id="fit-risk"></div>
         <div class="readouts" id="fit-readouts"></div>
         <div class="panel tight stack" style="gap:16px">
-          ${ctrl("dia", "Wheel diameter", 13, 18, 1, (v) => v + '"')}
-          ${ctrl("width", "Wheel width", 5, 10, 0.5, (v) => v + '"')}
-          ${ctrl("offset", "Offset", -10, 55, 1, (v) => (v >= 0 ? "+" : "") + v)}
-          ${ctrl("tw", "Tire width", 165, 245, 5, (v) => v + "mm")}
-          ${ctrl("ar", "Tire aspect", 35, 70, 5, (v) => v)}
+          ${ctrl("dia", "Wheel diameter", 13, 20, 1, (v) => v + '"')}
+          ${ctrl("width", "Wheel width", 5, 11, 0.5, (v) => v + '"')}
+          ${ctrl("offset", "Offset", -25, 60, 1, (v) => (v >= 0 ? "+" : "") + v)}
+          ${ctrl("tw", "Tire width", 165, 305, 5, (v) => v + "mm")}
+          ${ctrl("ar", "Tire aspect", 30, 75, 5, (v) => v)}
           ${ctrl("drop", "Suspension drop", 0, 4, 0.25, (v) => (v ? "−" + v : "0") + " in")}
         </div>
         <div class="infobox" id="fit-fixes"></div>

@@ -3,6 +3,7 @@
   const NS = window.NS, D = window.NS_DATA;
   const { esc, money, num, icon } = NS;
   NS.sample = null; NS.sampleImages = false;
+  NS.aiSettingsHTML = () => `<div class="infobox"><h4>AI · CLAUDE</h4><p style="margin:0;color:var(--fg-2);font-size:14.5px">${NS.sample ? "On. Here it runs on your claude.ai account: car setup, spec sheets, mod estimates, listing scores, receipts and Ask the Garage." : "Off in this view. It works when SUBLEVEL is open in the claude.ai viewer."}</p></div>`;
 
   NS.connectAI = async function () {
     if (!window.claude || !window.claude.use) return;
@@ -11,8 +12,11 @@
     if (NS.sample) { try { const l = await NS.sample.limits(); NS.sampleImages = !!(l && l.images); } catch (e) { NS.sampleImages = false; } }
     NS.render({ quiet: true });
   };
-  const errCopy = (e) => {
+  const errCopy = (NS.aiErrCopy = (e) => {
     const c = e && e.code;
+    if (c === "bad_key") return "That API key didn't work. Check it in Settings.";
+    if (c === "offline") return "No connection. AI needs the internet.";
+    if (c === "bad_request") return "Claude couldn't take that request. Try again with less text.";
     if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "capability_disabled") { NS.sample = null; return "Claude isn't allowed for this page. Turn it on from the page's permissions to use this."; }
     if (c === "rate_limited") return "Too many requests right now. Try again in a minute.";
     if (c === "invalid_json") return "Couldn't read that one. Try again, or paste less text.";
@@ -21,7 +25,7 @@
     if (c === "session_expired") return "Sign in again to use this.";
     if (c === "cancelled") return "";
     return "Something went wrong. Try again.";
-  };
+  });
 
   function garageContext() {
     const v = NS.veh(); const svc = NS.serviceStatus(v);
@@ -36,6 +40,7 @@
       `SERVICE: ${svc.map((x) => `${x.name}: ${x.state}${x.last ? ` (last ${x.last.mi} mi)` : ""}`).join("; ")}`,
       `BUDGET LEFT: $${Math.round((v.budget || 0) - NS.spent(v))}. Current recommended next move: ${nm ? nm.title : "none"}.`,
       `OWNER: learning automotive service; DIY jobs already learned: ${(NS.S.meta.learned || []).join(", ") || "none"}.`,
+      v.specs && v.specs.oil ? `SPEC SHEET: oil ${v.specs.oil.spec} (${v.specs.oil.capacity}); plugs ${v.specs.plugs ? v.specs.plugs.part + " gap " + v.specs.plugs.gap : "?"}; timing ${v.specs.timing ? v.specs.timing.type + " " + v.specs.timing.interval : "?"}; lug torque ${v.specs.wheels ? v.specs.wheels.lugTorque : "?"}; known issues: ${(v.specs.knownIssues || []).map((k) => k.title).join(", ")}.` : "",
     ].join("\n");
   }
 
@@ -103,7 +108,7 @@ ${txt}
     const c = chat();
     if (!NS.sample) return `${NS.subnav()}
       <div class="page-head"><div><div class="eyebrow">ASK THE GARAGE</div><h1 class="h1" style="margin-top:6px">A mechanic who knows your car</h1><p class="lede">Ask anything about your build. It already knows your car, your mods, your log and what's due.</p></div></div>
-      <div class="empty">Ask the Garage uses your Claude account, so it only works when SUBLEVEL is open in the claude.ai viewer.</div>`;
+      <div class="empty">${NS.standalone ? `Ask the Garage needs AI turned on. <button class="vio" data-act="settings-open" style="text-decoration:underline">Add your Anthropic API key in Settings</button>.` : "Ask the Garage uses your Claude account, so it only works when SUBLEVEL is open in the claude.ai viewer."}</div>`;
     return `${NS.subnav()}
     <div class="page-head"><div><div class="eyebrow">ASK THE GARAGE · ${esc(NS.veh().chassis)}</div><h1 class="h1" style="margin-top:6px">A mechanic who knows your car</h1><p class="lede">It already knows your car, your mods, your log and what's due. Safety first, and it'll tell you when to stop.</p></div>
       ${c.length ? `<button class="btn ghost sm" data-act="ask-clear">${icon("trash")}Clear</button>` : ""}</div>

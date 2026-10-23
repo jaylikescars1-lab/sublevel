@@ -259,7 +259,7 @@
     $("#sidebar").innerHTML = `<div class="sb-brand"><div class="row" style="gap:8px;flex-wrap:nowrap"><div class="wordmark">SUBLEVEL</div><span class="lvl-sign">B2</span></div><span class="px">BUILD / TRACK / LEARN / HUNT</span><div id="sb-rank"></div></div>` +
       NS.groups.map((x) => `<h6>${x.key}</h6>` + x.routes.map((rt) =>
         `<button data-act="go" data-r="${rt.r}" aria-current="${rt.r === NS.route}">${NS.icon(rt.i)}${rt.l}</button>`).join("")).join("") +
-      `<div class="sb-foot"><button data-act="backup-open" style="padding:6px 0;margin-bottom:8px">${NS.icon("box")}Backup + restore</button><span class="px dim">SL-OS 1.0 · ${esc(vehLabel(NS.veh()))}</span></div>`;
+      `<div class="sb-foot"><button data-act="settings-open" style="padding:6px 0;margin-bottom:8px">${NS.icon("build")}Settings</button><span class="px dim">SL-OS 1.0 · ${esc(vehLabel(NS.veh()))}</span></div>`;
     const cur = ALL.find((x) => x.r === NS.route);
     $("#crumb").textContent = "/ " + (cur ? cur.l.toUpperCase() : "");
   }
@@ -418,16 +418,31 @@
   NS.lastService = (v) => NS.sortedLog(v).find((l) => l.type === "maint");
   NS.lastOil = (v) => NS.sortedLog(v).find((l) => (l.tags || []).includes("oil") || /oil change|changed oil/i.test(l.title));
 
+  /* A car's service items with names and costs, whether they came from the built-in list or from AI. */
+  NS.svcDefs = (v) => (v.service || []).map((it) => ({ ...(D.service.find((x) => x.id === it.id) || { name: it.id, cost: 0, diff: 3 }), ...it }));
+
+  /* Fitment baseline for a car: its own specs when it has them, the built-in EK chassis numbers otherwise. */
+  NS.fitBase = function (v) {
+    const sp = (v && v.specs) || {}; const st = sp.wheels && sp.wheels.stock; const t = st && NS.parseTire && NS.parseTire(st.tire);
+    const builtin = !st && /^(EK|EJ|EM)\d?$/i.test((v && v.chassis) || "");
+    const stock = st && t ? { dia: +st.dia || t.dia, width: +st.width || 6, offset: +st.offset || 0, tw: t.tw, ar: t.ar } : D.fit.stock;
+    const fit = sp.fitment || {};
+    const label = (x) => `${x.dia}x${x.width} ${x.offset >= 0 ? "+" : ""}${x.offset}`;
+    const presets = (sp.fitPresets && sp.fitPresets.length ? sp.fitPresets.map((p) => ({ ...p, n: p.n || label(p) })) : builtin ? D.fit.presets.filter((p) => !/^Stock/.test(p.n)) : [])
+      .concat([{ n: "Stock " + label(stock), ...stock, note: "Factory setup." }]);
+    return { stock, lipOut: +fit.lipOut || D.fit.lipOut, innerLimit: +fit.innerLimit || D.fit.innerLimit, stockGap: +fit.stockGap || D.fit.stockGap, presets, tires: D.fit.tires, own: !!st };
+  };
+
   /* Service schedule status: last done from tagged log entries, else a known record (receipts). */
   const addMonths = (s, n) => { const d = parseDate(s); d.setMonth(d.getMonth() + n); return d; };
   NS.serviceStatus = function (v) {
     const log = NS.sortedLog(v);
     const nowT = new Date().setHours(0, 0, 0, 0);
     return (v.service || []).map((it) => {
-      const def = D.service.find((x) => x.id === it.id) || { name: it.name || it.id, cost: 0, diff: 3 };
+      const def = D.service.find((x) => x.id === it.id) || { name: it.id, cost: 0, diff: 3 };
       const hit = log.find((l) => (l.tags || []).includes(it.id) || (it.id === "oil" && /oil change|changed oil/i.test(l.title)));
       const last = hit ? { mi: hit.mileage, date: hit.date, src: "log", title: hit.title } : it.known ? { mi: it.known.mi, date: it.known.date, src: "record", note: it.known.note } : null;
-      const out = { ...def, ...it, name: def.name, last };
+      const out = { ...def, ...it, name: it.name || def.name, last };
       if (!last) return { ...out, state: "unknown", pct: 1 };
       const dueMi = last.mi + it.everyMi, dueDate = addMonths(last.date, it.everyMo);
       const leftMi = dueMi - v.mileage, leftDays = Math.round((dueDate - nowT) / 864e5);

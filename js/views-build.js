@@ -61,7 +61,7 @@
       <div>
         <div class="eyebrow">MY BUILD · ${esc(v.chassis)}</div>
         <h1 class="h1" style="margin-top:6px">${esc(NS.vehLabel(v))}</h1>
-        <p class="lede">${esc(v.engine)} · ${esc(v.color || "")} · ${num(v.mileage)} mi · bought ${NS.fmtDate(v.purchaseDate || NS.today())} ${String(v.purchaseDate || "").slice(0, 4)} for ${money(v.purchasePrice)}</p>
+        <p class="lede">${esc(v.engine)} · ${esc(v.color || "")} · ${num(v.mileage)} mi · ${v.purchasePrice ? "bought" : "added"} ${NS.fmtDate(v.purchaseDate || NS.today())} ${String(v.purchaseDate || "").slice(0, 4)}${v.purchasePrice ? " for " + money(v.purchasePrice) : ""}</p>
       </div>
       <div class="row"><button class="btn" data-act="edit-vehicle">${icon("edit")}Edit car</button><button class="btn" data-act="add-vehicle">${icon("plus")}Add car</button></div>
     </div>
@@ -73,6 +73,8 @@
       <div><div class="k">STILL PLANNED</div><div class="v">${money(planned)}</div></div>
       <div><div class="k">PHASE</div><div class="v">0${cur.id}</div></div>
     </div>
+
+    ${NS.specSheetHTML ? NS.specSheetHTML(v) : ""}
 
     <section class="section">
       <div class="sec-head"><div><div class="eyebrow">CURRENT SETUP</div><h2 class="h2" style="margin-top:4px">What's on the car right now</h2></div><button class="btn sm" data-act="setup-add">${icon("plus")}Component</button></div>

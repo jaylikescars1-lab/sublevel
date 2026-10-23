@@ -7,7 +7,8 @@
   /* ================= LOG ================= */
   NS.logForm = function ({ prefill = {}, entry = null, expenseCat = "Maintenance", onDone } = {}) {
     const v = NS.veh();
-    const svcName = (id) => (D.service.find((x) => x.id === id) || {}).name;
+    const SVC = NS.svcDefs(v);
+    const svcName = (id) => (SVC.find((x) => x.id === id) || {}).name;
     const base = entry ? { ...entry } : { date: NS.today(), type: "maint", mileage: v.mileage, cost: 0, notes: "", photos: [], addExpense: true, cat: expenseCat, minutes: 0, ...prefill };
     const value = { ...base, svc: (base.tags || []).map(svcName).filter(Boolean) };
     const fields = [
@@ -15,7 +16,7 @@
       { k: "type", l: "Type", t: "seg", o: TYPES },
       { k: "date", l: "Date", t: "date" }, { k: "mileage", l: "Mileage", t: "number", step: 1 },
       { k: "cost", l: "Cost", t: "money" }, { k: "minutes", l: "Time in the garage (min)", t: "number", step: 5 },
-      { k: "svc", l: "Service covered (resets the schedule)", t: "multi", o: D.service.map((x) => x.name) },
+      { k: "svc", l: "Service covered (resets the schedule)", t: "multi", o: SVC.map((x) => x.name) },
       { k: "notes", l: "Notes", t: "textarea", ph: "Torque specs, what went wrong, what you'd do differently" },
       { k: "photos", l: "Photos", t: "photos" },
     ];
@@ -23,9 +24,9 @@
     NS.form({ eyebrow: entry ? "GARAGE LOG" : "NEW LOG ENTRY", title: entry ? entry.title : "Log a garage session", fields, value,
       onSave: (o) => {
         if (!o.title) { NS.toast("Say what you did"); return false; }
-        const svcIds = (o.svc || []).map((n) => (D.service.find((x) => x.name === n) || {}).id).filter(Boolean);
+        const svcIds = (o.svc || []).map((n) => (SVC.find((x) => x.name === n) || {}).id).filter(Boolean);
         const rec = { id: entry ? entry.id : NS.uid("l"), date: o.date, title: o.title, type: o.type || "note", mileage: Math.round(o.mileage) || 0, cost: o.cost || 0, minutes: Math.round(o.minutes) || 0, notes: o.notes, photos: o.photos || [],
-          tags: (entry?.tags || []).filter((t) => !D.service.some((x) => x.id === t)).concat(svcIds) };
+          tags: (entry?.tags || []).filter((t) => !SVC.some((x) => x.id === t)).concat(svcIds) };
         if (base.startHour != null) rec.startHour = base.startHour;
         if (entry) Object.assign(entry, rec); else v.log.push(rec);
         if (rec.mileage > v.mileage) v.mileage = rec.mileage;
@@ -37,7 +38,7 @@
   };
   NS.acts["log-new"] = (el) => {
     const preset = el && el.dataset && el.dataset.preset;
-    const d = preset && D.service.find((x) => x.id === preset);
+    const d = preset && NS.svcDefs(NS.veh()).find((x) => x.id === preset);
     if (preset === "oil") NS.logForm({ prefill: { title: "Changed oil", type: "maint", cost: 40, tags: ["oil"], notes: "" } });
     else if (d) NS.logForm({ prefill: { title: d.name, type: "maint", cost: d.cost || 0, tags: [d.id], notes: "" } });
     else NS.logForm();
@@ -67,7 +68,7 @@
       return `${head}<button class="entry" data-type="${l.type}" data-act="log-edit" data-id="${l.id}" style="text-align:left;width:100%">
         <div class="date"><div class="mm">${NS.MON[d.getMonth()]}</div><div class="dd num">${String(d.getDate()).padStart(2, "0")}</div></div>
         <div class="body"><div class="row between" style="gap:8px"><span class="t">${esc(l.title)}</span><span class="tag">${(TYPES.find((t) => t.v === l.type) || TYPES[3]).l}</span></div>
-          <div class="m">${l.mileage ? `<span>${num(l.mileage)} MI</span>` : ""}${l.cost ? `<span>${money(l.cost)}</span>` : ""}${l.minutes ? `<span>${l.minutes >= 60 ? Math.floor(l.minutes / 60) + "H " : ""}${l.minutes % 60}M</span>` : ""}${(l.tags || []).map((t) => (D.service.find((x) => x.id === t) || {}).name).filter(Boolean).map((n) => `<span class="vio">${esc(n.toUpperCase())}</span>`).join("")}</div>
+          <div class="m">${l.mileage ? `<span>${num(l.mileage)} MI</span>` : ""}${l.cost ? `<span>${money(l.cost)}</span>` : ""}${l.minutes ? `<span>${l.minutes >= 60 ? Math.floor(l.minutes / 60) + "H " : ""}${l.minutes % 60}M</span>` : ""}${(l.tags || []).map((t) => (NS.svcDefs(v).find((x) => x.id === t) || {}).name).filter(Boolean).map((n) => `<span class="vio">${esc(n.toUpperCase())}</span>`).join("")}</div>
           ${l.notes ? `<div class="n">${esc(l.notes)}</div>` : ""}
           ${(l.photos || []).length ? `<div class="photos" style="margin-top:8px">${l.photos.map((p) => `<img src="${NS.img(p)}" alt="" loading="lazy">`).join("")}</div>` : ""}
         </div></button>`;

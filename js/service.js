@@ -40,11 +40,11 @@
   };
 
   NS.acts["svc-log"] = (el) => {
-    const d = D.service.find((x) => x.id === el.dataset.id);
+    const d = NS.svcDefs(NS.veh()).find((x) => x.id === el.dataset.id);
     NS.logForm({ prefill: { title: d.name, type: "maint", cost: d.cost || 0, tags: [d.id] } });
   };
   NS.acts["svc-edit"] = (el) => {
-    const v = NS.veh(); const it = v.service.find((x) => x.id === el.dataset.id); const d = D.service.find((x) => x.id === it.id);
+    const v = NS.veh(); const it = v.service.find((x) => x.id === el.dataset.id); const d = NS.svcDefs(v).find((x) => x.id === it.id);
     NS.form({ eyebrow: "SERVICE INTERVAL", title: d.name,
       value: { everyMi: it.everyMi, everyMo: it.everyMo, kmi: it.known?.mi || "", kdate: it.known?.date || "", knote: it.known?.note || "" },
       fields: [

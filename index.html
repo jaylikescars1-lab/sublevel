@@ -794,6 +794,34 @@ input[type=range]{width:100%;accent-color:var(--violet-hi);height:28px;backgroun
 .install b{color:var(--fg)}
 .install svg{width:20px;height:20px;flex:none;color:var(--violet-hi)}
 
+/* ---------- any car ---------- */
+details.more>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"+";font-family:var(--f-mono);color:var(--violet-hi);font-size:14px}
+details.more[open]>summary::before{content:"−"}
+.ai-run{display:grid;gap:14px;padding:4px 0}
+.ai-steps{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ai-steps li{display:flex;align-items:center;gap:10px;font-size:14.5px;color:var(--fg-4);transition:color .3s}
+.ai-steps li i{width:10px;height:10px;border-radius:3px;border:1.5px solid currentColor;flex:none}
+.ai-steps li.on{color:var(--fg)}
+.ai-steps li.on i{border-color:var(--violet-hi);background:var(--violet-hi);animation:pulse 1.6s infinite;box-shadow:0 0 0 0 rgba(169,140,255,.6)}
+.ai-steps li.done{color:var(--fg-2)}
+.ai-steps li.done i{background:var(--ok);border-color:var(--ok)}
+.preview-car{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#08070c}
+.preview-car svg{display:block;width:100%;height:auto}
+.spec-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:12px}
+@media (min-width:860px){.spec-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.spec-grid>div{background:#0d0b13;padding:9px 11px;display:flex;flex-direction:column;gap:3px;min-width:0;font-size:14px}
+.spec-grid>div span:last-child{overflow-wrap:anywhere}
+.spec-sheet{border:1px solid var(--line);border-radius:16px;background:var(--bg-1);padding:14px}
+.spec-sheet[open]{border-color:var(--line-2)}
+.spec-sheet>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+.spec-sheet>summary::-webkit-details-marker{display:none}
+.spec-sheet>summary svg{width:16px;height:16px;color:var(--fg-3);transform:rotate(90deg);transition:transform .2s}
+.spec-sheet[open]>summary svg{transform:rotate(-90deg)}
+.spec-line{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--fg-2);margin-top:5px}
+.spec-empty{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:14px;border-radius:16px;border:1px dashed var(--line-2)}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
 }
@@ -808,7 +836,7 @@ input[type=range]{width:100%;accent-color:var(--violet-hi);height:28px;backgroun
     <div class="spacer"></div>
     <button class="sess" id="sess" data-act="session-stop" title="Garage session running. Tap to end and log it." hidden></button>
     <button class="lvl-chip" id="lvl" data-act="go" data-r="rank" title="Garage rank"></button>
-    <button class="sync" id="sync" data-s="local" data-act="backup-open" title="Where your data is saved. Tap for backup."><i></i><span>LOCAL</span></button>
+    <button class="sync" id="sync" data-s="local" data-act="settings-open" title="Settings: AI and your data"><i></i><span>LOCAL</span></button>
     <div class="clock" aria-label="Clock"><div class="t" id="clock-t">--<b>:</b>--</div><div class="d" id="clock-d">---</div></div>
   </header>
   <main id="view" class="col-main"></main>
@@ -828,10 +856,12 @@ input[type=range]{width:100%;accent-color:var(--violet-hi);height:28px;backgroun
 <script src="js/views-track.js"></script>
 <script src="js/style.js"></script>
 <script src="js/habits.js"></script>
+<script src="js/cars.js"></script>
 <script src="js/service.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/backup.js"></script>
+<script src="js/vendor/anthropic-sdk.js"></script>
 <script src="js/local.js"></script>
 <script src="js/boot.js"></script>
 </body>

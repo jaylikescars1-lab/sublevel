@@ -21,9 +21,11 @@
   NS.where = () => (NS.standalone ? "on this phone" : NS.db ? "in your claude.ai garage" : "in this browser");
   const daysSince = (iso) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 864e5) : null);
 
-  NS.acts["backup-open"] = () => {
+  NS.acts["settings-open"] = NS.acts["backup-open"] = () => {
     const last = NS.S.meta.lastBackup; const d = daysSince(last);
-    NS.sheet(NS.sheetHead("YOUR DATA", "Backup + restore") + `
+    NS.sheet(NS.sheetHead("SETTINGS", "AI + your data") + `
+      ${NS.aiSettingsHTML ? NS.aiSettingsHTML() : ""}
+      <div class="lbl" style="margin:18px 0 8px">Your data</div>
       <div class="infobox"><h4>WHERE IT LIVES</h4><p style="margin:0;color:var(--fg-2);font-size:14.5px">Everything is saved <b style="color:var(--fg)">${esc(NS.where())}</b>.${NS.standalone ? " Nothing is uploaded anywhere. If you delete the app or clear Safari's website data, it's gone, so keep a backup in Files or iCloud Drive." : ""}</p></div>
       <div class="grid g2" style="margin-top:14px">
         <div class="stat"><div class="k">Last backup</div><div class="v" style="font-size:20px">${last ? (d === 0 ? "Today" : d + "d ago") : "Never"}</div></div>

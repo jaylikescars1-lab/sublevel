@@ -5,21 +5,52 @@
   const GROUND = 330;
   const FX = 245, RX = 769;           // axle x (2620 mm wheelbase)
   const STOCK_OD = 596;                // 185/65R14
-  const ARCH_R = 70;
 
   NS.tireOD = (dia, tw, ar) => dia * 25.4 + 2 * tw * (ar / 100);
   NS.parseTire = (s) => { const m = String(s || "").match(/(\d{3})\s*\/\s*(\d{2})\s*R?\s*(\d{2})/i); return m ? { tw: +m[1], ar: +m[2], dia: +m[3] } : null; };
 
-  /* Body outline in the stock frame (car faces left). Arch centers sit on the stock axle line. */
-  function bodyPath() {
+  /* Body styles, drawn in the stock frame with the car facing left. ARCHES is filled in per style. */
+  const BODIES = {
+    coupe: { archR: 70,
+      outline: "M78 282 C70 270 67 252 72 234 C75 224 86 218 104 215 L320 198 C350 195 372 192 388 188 L498 116 C540 100 630 96 688 106 C740 118 790 150 832 178 C860 182 910 183 938 185 C954 186 964 192 966 204 L968 252 C968 268 964 278 956 284 ARCHES L92 290 C86 288 80 286 78 282 Z",
+      top: "M104 215 L320 198 C350 195 372 192 388 188 L498 116 C540 100 630 96 688 106 C740 118 790 150 832 178 C860 182 910 183 938 185 C954 186 964 192 966 204",
+      glassA: "M418 186 L503 128 C540 114 600 110 650 114 L652 183 Z", glassB: "M666 116 C716 124 760 150 798 180 L668 184 Z", pillar: "M652 114 L666 116 L668 184 L652 183 Z",
+      doors: "M398 190 L404 288 M664 186 L668 290", crease: "M96 242 C300 236 600 232 960 226", handle: [610, 206],
+      mirror: "M418 186 L436 172 L462 172 L462 192 L424 194 Z", lamp: "M76 232 L128 222 L132 234 L80 244 Z", lampLine: "M80 236 L126 228", dots: [[96, 234], [114, 230]],
+      tail: "M944 192 L966 204 L967 230 L942 226 Z", tailLine: "M946 198 L964 207" },
+    sedan: { archR: 70,
+      outline: "M78 282 C70 270 67 252 72 234 C75 224 86 218 104 215 L330 196 C352 194 372 191 386 187 L492 118 C530 104 610 98 690 102 C740 106 782 128 822 162 C838 170 852 172 882 173 C922 174 944 176 955 181 C963 186 966 194 966 204 L968 252 C968 268 964 278 956 284 ARCHES L92 290 C86 288 80 286 78 282 Z",
+      top: "M104 215 L330 196 C352 194 372 191 386 187 L492 118 C530 104 610 98 690 102 C740 106 782 128 822 162 C838 170 852 172 882 173 C922 174 944 176 955 181 C963 186 966 194 966 204",
+      glassA: "M414 186 L497 128 C534 115 590 110 638 110 L640 183 Z", glassB: "M654 110 C705 112 748 130 786 160 L788 182 L656 184 Z", pillar: "M638 110 L654 110 L656 184 L640 183 Z",
+      doors: "M398 190 L404 288 M647 184 L650 290 M806 172 L800 262", crease: "M96 242 C300 236 600 232 960 226", handle: [596, 206],
+      mirror: "M414 186 L432 172 L458 172 L458 192 L420 194 Z", lamp: "M76 232 L128 222 L132 234 L80 244 Z", lampLine: "M80 236 L126 228", dots: [[96, 234], [114, 230]],
+      tail: "M944 184 L966 196 L967 226 L942 222 Z", tailLine: "M946 190 L964 199" },
+    hatch: { archR: 70,
+      outline: "M78 282 C70 270 67 252 72 234 C75 224 86 218 104 215 L330 196 C352 194 372 191 386 187 L492 118 C530 104 610 98 700 99 C780 100 856 104 896 112 C918 118 930 132 938 152 L956 186 C962 196 966 206 966 216 L968 252 C968 268 964 278 956 284 ARCHES L92 290 C86 288 80 286 78 282 Z",
+      top: "M104 215 L330 196 C352 194 372 191 386 187 L492 118 C530 104 610 98 700 99 C780 100 856 104 896 112 C918 118 930 132 938 152 L956 186 C962 196 966 206 966 216",
+      glassA: "M414 186 L497 128 C534 115 590 110 638 110 L640 183 Z", glassB: "M654 110 C740 106 828 108 870 118 C886 124 896 146 902 176 L656 184 Z", pillar: "M638 110 L654 110 L656 184 L640 183 Z",
+      doors: "M398 190 L404 288 M647 184 L650 290", crease: "M96 242 C300 236 600 232 960 226", handle: [596, 206],
+      mirror: "M414 186 L432 172 L458 172 L458 192 L420 194 Z", lamp: "M76 232 L128 222 L132 234 L80 244 Z", lampLine: "M80 236 L126 228", dots: [[96, 234], [114, 230]],
+      tail: "M928 172 L952 182 L958 214 L932 210 Z", tailLine: "M930 178 L950 186" },
+    suv: { archR: 84,
+      outline: "M74 290 C66 276 64 250 68 226 C72 210 84 202 104 198 L300 184 C330 182 350 178 370 172 L470 96 C500 82 560 78 700 78 C800 78 880 82 912 90 C930 96 942 112 950 140 L960 186 C966 200 968 212 968 226 L968 262 C968 276 962 286 952 290 ARCHES L92 294 C84 294 78 292 74 290 Z",
+      top: "M104 198 L300 184 C330 182 350 178 370 172 L470 96 C500 82 560 78 700 78 C800 78 880 82 912 90 C930 96 942 112 950 140 L960 186 C966 200 968 212 968 226",
+      glassA: "M398 172 L476 108 C506 96 570 92 620 92 L622 168 Z", glassB: "M638 92 C760 90 858 92 898 98 C912 104 920 128 924 166 L640 170 Z", pillar: "M620 92 L638 92 L640 170 L622 168 Z",
+      doors: "M382 176 L388 290 M630 172 L632 292 M826 170 L820 262", crease: "M92 236 C300 230 600 226 962 220", handle: [586, 196],
+      mirror: "M398 172 L416 158 L442 158 L442 178 L404 180 Z", lamp: "M70 214 L124 202 L128 216 L74 226 Z", lampLine: "M74 218 L122 208", dots: [[90, 216], [108, 212]],
+      tail: "M944 146 L962 158 L966 198 L944 194 Z", tailLine: "M946 152 L962 162" },
+  };
+  NS.bodyStyles = [["coupe", "Coupe"], ["sedan", "Sedan"], ["hatch", "Hatchback"], ["wagon", "Wagon"], ["suv", "SUV"], ["truck", "Truck"]];
+  const bodyOf = (k) => BODIES[{ wagon: "hatch", truck: "suv", van: "suv", convertible: "coupe" }[k] || k] || BODIES.coupe;
+
+  function bodyPath(kind) {
+    const B = bodyOf(kind); const R = B.archR;
     const sill = 292;
     const axleY = GROUND - (STOCK_OD / 2) * SCALE; // 270.4
-    const half = Math.sqrt(ARCH_R * ARCH_R - (sill - axleY) ** 2);
+    const half = Math.sqrt(R * R - (sill - axleY) ** 2);
     const fa = [FX + half, FX - half], ra = [RX + half, RX - half];
-    return {
-      sill, axleY, half,
-      d: `M78 282 C70 270 67 252 72 234 C75 224 86 218 104 215 L320 198 C350 195 372 192 388 188 L498 116 C540 100 630 96 688 106 C740 118 790 150 832 178 C860 182 910 183 938 185 C954 186 964 192 966 204 L968 252 C968 268 964 278 956 284 L${ra[0].toFixed(1)} ${sill} A${ARCH_R} ${ARCH_R} 0 1 0 ${ra[1].toFixed(1)} ${sill} L${fa[0].toFixed(1)} ${sill} A${ARCH_R} ${ARCH_R} 0 1 0 ${fa[1].toFixed(1)} ${sill} L92 290 C86 288 80 286 78 282 Z`,
-    };
+    const arches = `L${ra[0].toFixed(1)} ${sill} A${R} ${R} 0 1 0 ${ra[1].toFixed(1)} ${sill} L${fa[0].toFixed(1)} ${sill} A${R} ${R} 0 1 0 ${fa[1].toFixed(1)} ${sill}`;
+    return { B, R, sill, axleY, half, d: B.outline.replace("ARCHES", arches) };
   }
 
   /* Hex shading helper for colored rims and paint. */
@@ -88,38 +119,39 @@
     const dia = o.dia || 14;
     const od = o.od || STOCK_OD;
     const drop = (o.drop || 0) * 25.4;
-    const b = bodyPath();
+    const b = bodyPath(o.body || (NS.veh && NS.veh() && NS.veh().specs && NS.veh().specs.body));
     const bodyDy = (-(od - STOCK_OD) / 2 + drop) * SCALE;
     const wy = GROUND - (od / 2) * SCALE;
     const paint = o.paint || "#15141a";
     const w = { od, dia, style: o.wheelStyle, rimColor: o.rimColor, accent: o.accent };
     const smoked = o.lights === "smoked";
     const lip = o.lip ? `<path d="M80 286 L84 294 L190 296 L196 290 Z" fill="#08080b"/><path d="M84 294 L190 296" stroke="#fff" stroke-opacity=".12" stroke-width=".8"/>` : "";
+    const B = b.B;
     const car = `
       <g transform="translate(0 ${bodyDy.toFixed(2)})">
         <path d="${b.d}" fill="url(#${id}-paint)"/>
         <path d="${b.d}" fill="url(#${id}-shade)"/>
-        <path d="M104 215 L320 198 C350 195 372 192 388 188 L498 116 C540 100 630 96 688 106 C740 118 790 150 832 178 C860 182 910 183 938 185 C954 186 964 192 966 204" fill="none" stroke="url(#${id}-chrome)" stroke-width="1.4" opacity=".9"/>
-        <path d="M418 186 L503 128 C540 114 600 110 650 114 L652 183 Z" fill="url(#${id}-glass)"/>
-        <path d="M666 116 C716 124 760 150 798 180 L668 184 Z" fill="url(#${id}-glass)"/>
-        <path d="M418 186 L503 128 C540 114 600 110 650 114 L652 183" fill="none" stroke="#3a3747" stroke-width="1"/>
-        <path d="M652 114 L666 116 L668 184 L652 183 Z" fill="${paint}"/>
-        <path d="M398 190 L404 288 M664 186 L668 290" stroke="#000" stroke-opacity=".55" stroke-width="1.2"/>
-        <path d="M398 190 L404 288 M664 186 L668 290" stroke="#fff" stroke-opacity=".06" stroke-width="1" transform="translate(1 0)"/>
-        <path d="M96 242 C300 236 600 232 960 226" stroke="#fff" stroke-opacity=".10" stroke-width="1.2" fill="none"/>
-        <path d="M96 243.5 C300 237.5 600 233.5 960 227.5" stroke="#000" stroke-opacity=".5" stroke-width="1" fill="none"/>
-        <rect x="610" y="206" width="26" height="4" rx="2" fill="#2b2935"/>
-        <path d="M418 186 L436 172 L462 172 L462 192 L424 194 Z" fill="${paint}" stroke="#2c2a36" stroke-width=".8"/>
-        <path d="M76 232 L128 222 L132 234 L80 244 Z" fill="url(#${id}-lamp)"/>
-        <path d="M80 236 L126 228" stroke="#fff" stroke-opacity="${smoked ? ".25" : ".5"}" stroke-width=".8"/>
-        ${smoked ? `<circle cx="96" cy="234" r="4.5" fill="#cfd6ff" opacity=".55"/><circle cx="114" cy="230" r="4.5" fill="#cfd6ff" opacity=".45"/>` : ""}
-        <path d="M944 192 L966 204 L967 230 L942 226 Z" fill="${smoked ? "#2a0b12" : "#5e1424"}"/>
+        <path d="${B.top}" fill="none" stroke="url(#${id}-chrome)" stroke-width="1.4" opacity=".9"/>
+        <path d="${B.glassA}" fill="url(#${id}-glass)"/>
+        <path d="${B.glassB}" fill="url(#${id}-glass)"/>
+        <path d="${B.glassA}" fill="none" stroke="#3a3747" stroke-width="1"/>
+        <path d="${B.pillar}" fill="${paint}"/>
+        <path d="${B.doors}" stroke="#000" stroke-opacity=".55" stroke-width="1.2" fill="none"/>
+        <path d="${B.doors}" stroke="#fff" stroke-opacity=".06" stroke-width="1" fill="none" transform="translate(1 0)"/>
+        <path d="${B.crease}" stroke="#fff" stroke-opacity=".10" stroke-width="1.2" fill="none"/>
+        <path d="${B.crease}" stroke="#000" stroke-opacity=".5" stroke-width="1" fill="none" transform="translate(0 1.5)"/>
+        <rect x="${B.handle[0]}" y="${B.handle[1]}" width="26" height="4" rx="2" fill="#2b2935"/>
+        <path d="${B.mirror}" fill="${paint}" stroke="#2c2a36" stroke-width=".8"/>
+        <path d="${B.lamp}" fill="url(#${id}-lamp)"/>
+        <path d="${B.lampLine}" stroke="#fff" stroke-opacity="${smoked ? ".25" : ".5"}" stroke-width=".8"/>
+        ${smoked ? B.dots.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="4.5" fill="#cfd6ff" opacity="${i ? ".45" : ".55"}"/>`).join("") : ""}
+        <path d="${B.tail}" fill="${smoked ? "#2a0b12" : "#5e1424"}"/>
         ${lip}
-        <path d="M946 198 L964 207" stroke="#ff6b84" stroke-opacity=".45" stroke-width="1"/>
+        <path d="${B.tailLine}" stroke="#ff6b84" stroke-opacity=".45" stroke-width="1"/>
         <path d="M76 268 L150 272" stroke="#000" stroke-opacity=".6" stroke-width="2"/>
       </g>`;
     const wheels = wheel(FX, wy, w, id) + wheel(RX, wy, w, id);
-    const well = (x) => `<path d="M${(x + b.half).toFixed(1)} ${b.sill} A${ARCH_R} ${ARCH_R} 0 1 0 ${(x - b.half).toFixed(1)} ${b.sill} Z" fill="#050407"/>`;
+    const well = (x) => `<path d="M${(x + b.half).toFixed(1)} ${b.sill} A${b.R} ${b.R} 0 1 0 ${(x - b.half).toFixed(1)} ${b.sill} Z" fill="#050407"/>`;
     const wells = `<g transform="translate(0 ${bodyDy.toFixed(2)})">${well(FX)}${well(RX)}</g>`;
     const glow = o.glow === false ? "" : `<ellipse cx="507" cy="${GROUND + 2}" rx="470" ry="26" fill="url(#${id}-pool)"/>`;
     const refl = o.reflection === false ? "" : `<g transform="translate(0 ${GROUND * 2 + 2}) scale(1 -1)" opacity=".16" mask="url(#${id}-fade)">${wells}${wheels}${car}</g>`;
@@ -201,8 +233,8 @@
   };
 
   /* Small silhouette for listing cards */
-  NS.silSVG = function () {
-    const b = bodyPath();
+  NS.silSVG = function (body) {
+    const b = bodyPath(body);
     return `<svg class="sil" viewBox="60 90 920 230" aria-hidden="true"><path d="${b.d}" fill="none" stroke="rgba(214,206,240,.35)" stroke-width="2"/><circle cx="${FX}" cy="${b.axleY}" r="58" fill="none" stroke="rgba(214,206,240,.25)" stroke-width="2"/><circle cx="${RX}" cy="${b.axleY}" r="58" fill="none" stroke="rgba(214,206,240,.25)" stroke-width="2"/></svg>`;
   };
 })();
