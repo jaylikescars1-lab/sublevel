@@ -44,7 +44,7 @@
         <div><div class="stat"><div class="k">Difficulty</div><div class="v">${m.diff || "–"}<span class="dim" style="font-size:15px">/10</span></div></div></div>
         <div><div class="stat"><div class="k">Priority</div><div class="v prio ${m.level}">${m.level}</div></div></div>
       </div>
-      ${m.need && m.need.length ? `<div class="need"><span class="px warn">STILL NEED</span>&nbsp; ${m.need.map(esc).join(" · ")}</div>` : ""}
+      ${m.need && m.need.length ? `<div class="need"><span class="px warn">STILL NEED</span>&nbsp; ${m.need.map(esc).join(" · ")} <button class="btn sm ghost" data-act="shop-next" style="margin-left:6px">${icon("cart")}Shop</button></div>` : ""}
       <div class="row" style="margin-top:16px">${NS.commitHTML(m, v)}</div>
       <div class="row" style="margin-top:10px">
         ${job ? `<button class="btn primary" data-act="open-job" data-id="${job}">${icon("learn")}Open the guide</button>` : ""}
@@ -118,6 +118,7 @@
       <div class="statusline" aria-label="Garage status">${statusLine(v, last)}</div>
     </section>
     ${NS.standalone ? "" : handoff()}
+    ${NS.isSample && NS.isSample(v) ? `<button class="nudge" data-act="add-vehicle">${icon("car")}<span><b>This is a sample car.</b> Add yours and the sample goes away.</span>${icon("chev")}</button>` : ""}
     ${vehicles.length > 1 ? `<div class="chips" style="margin-bottom:12px">${vehicles.map((x) => `<button class="chip" data-act="switch-veh" data-id="${x.id}" aria-pressed="${x.id === v.id}">${esc(x.year + " " + x.model)}</button>`).join("")}</div>` : ""}
 
     <article class="panel hero brackets">

@@ -118,6 +118,23 @@
   }
 
   NS.scrubSample = (v) => scrub(v, true);
+
+  /* The untouched demo car someone is just looking around in. */
+  NS.isSample = (v) => !!v && v.id === VID && !v.sampleCleaned && !inUse(v);
+  /* Adding a first real car clears the demo and any sample lists nobody has touched. */
+  NS.dropSample = function () {
+    const S = NS.S;
+    if (Object.keys(S.vehicles).length !== 1 || !NS.isSample(S.vehicles[VID])) return false;
+    delete S.vehicles[VID];
+    NS.commit("v:" + VID, { silent: true, noProgress: true });
+    const sig = (items) => JSON.stringify((items || []).map((x) => [x.id, x.title || x.name]).sort());
+    for (const k of ["hunt", "inventory", "style"]) if (S[k] && sig(S[k].items) === sig(SEED[k].items)) { S[k].items = []; NS.commit(k, { silent: true, noProgress: true }); }
+    const marks = (S.checklist && S.checklist.marks) || {};
+    if (Object.keys(marks).every((id) => SEED.checklist.marks[id])) { S.checklist = { active: "adhoc", marks: {} }; NS.commit("checklist", { silent: true, noProgress: true }); }
+    if (same([...(S.meta.learned || [])].sort(), [...SEED.meta.learned].sort())) S.meta.learned = [];
+    S.meta.seenBadges = [];
+    return true;
+  };
   NS.cleanSample = function () {
     const r = run(false);
     if (r) setTimeout(() => report(r), NS.standalone ? 900 : 300);

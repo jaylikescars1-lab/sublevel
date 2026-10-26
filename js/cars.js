@@ -116,10 +116,11 @@ Reply with only the JSON.`;
     };
   }
   function addVehicle(v) {
+    if (NS.dropSample) NS.dropSample();
     const S = NS.S; S.vehicles[v.id] = v; S.meta.active = v.id; NS.migrate();
     NS._celebrate = { title: NS.vehLabel(v), kicker: "NEW PROJECT" };
     NS.commit("v:" + v.id, { silent: true, noProgress: true }); NS.commit("meta", { silent: true });
-    NS.closeSheet(); NS.ui.look = null; NS.go("garage");
+    NS.closeSheet(); NS.ui.look = null; NS.progressInit && NS.progressInit(); NS.go("garage");
   }
 
   /* ---------- the add-a-car sheet ---------- */

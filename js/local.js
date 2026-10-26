@@ -171,13 +171,15 @@
       document.body.appendChild(el);
     }
     if (firstRun) setTimeout(() => {
-      NS.sheet(NS.sheetHead("WELCOME TO SUBLEVEL", "Your garage lives on this phone") + `
-        <p class="muted" style="margin:0 0 14px;font-size:15px">Nothing gets uploaded. Your build, log, money and photos stay on this device and work with no signal.</p>
+      NS.sheet(NS.sheetHead("WELCOME TO SUBLEVEL", "Your build, on your phone") + `
+        <p class="muted" style="margin:0 0 14px;font-size:15px">Plan the build, log the work, track the money. Everything stays on this phone and works with no signal.</p>
         <div class="day-grid" style="grid-template-columns:1fr">
-          <button class="day" data-act="welcome-import"><b>Bring my garage over</b><span>Import the backup you exported from SUBLEVEL on claude.ai</span></button>
-          <button class="day" data-act="close-sheet"><b>Look around first</b><span>Start with the sample '97 Civic build. You can import later from Backup.</span></button>
+          <button class="day" data-act="welcome-add"><b>Add my car</b><span>Type what you drive. You get a roadmap, a service schedule and wheel fitment for it.</span></button>
+          <button class="day" data-act="close-sheet"><b>Look around first</b><span>Explore a sample '97 Civic build. It goes away when you add your car.</span></button>
+          <button class="day" data-act="welcome-import"><b>Restore a backup</b><span>Bring your garage over from another phone or from claude.ai.</span></button>
         </div>`);
     }, 1900);
   });
   NS.acts["welcome-import"] = () => NS.acts["backup-open"]();
+  NS.acts["welcome-add"] = () => NS.acts["add-vehicle"]();
 })();

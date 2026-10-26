@@ -15,6 +15,7 @@
     }
     return NS.ui.fit;
   };
+  NS.fitState = fitState;
 
   NS.fitCalc = function (s) {
     const st = F.stock;
@@ -136,6 +137,7 @@
         <div class="infobox" id="fit-fixes"></div>
         <div class="panel tight"><div class="lbl" style="margin-bottom:8px">Recommended tire sizes</div><div id="fit-tires" class="stack" style="gap:6px"></div></div>
         <button class="btn" data-act="fit-save">${icon("check")}Save as my planned wheel setup</button>
+        <button class="btn" data-act="shop-fit">${icon("cart")}Shop this setup</button>
       </div>
     </div>`;
   };

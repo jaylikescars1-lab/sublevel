@@ -40,6 +40,7 @@
           <button class="btn sm" data-act="mod-edit" data-id="${m.id}">${icon("edit")}Edit</button>
           ${job ? `<button class="btn sm" data-act="open-job" data-id="${job}">${icon("learn")}Guide</button>` : ""}
           <button class="btn sm" data-act="calc-from" data-id="${m.id}">${icon("calc")}Real cost</button>
+          ${m.status !== "done" ? `<button class="btn sm" data-act="shop-mod" data-id="${m.id}">${icon("cart")}Shop parts</button>` : ""}
           ${m.status !== "done" ? `<button class="btn sm primary" data-act="finish-mod" data-id="${m.id}">${icon("check")}Done, log it</button>` : ""}
         </div>
       </div>

@@ -68,7 +68,7 @@
     <div class="chips" style="margin-bottom:8px">${FILTERS.map(([k, l]) => `<button class="chip" data-act="hunt-filter" data-k="${k}" aria-pressed="${act.includes(k)}">${l}</button>`).join("")}</div>
     <div class="row between" style="margin:10px 0 14px"><span class="px dim">${list.length} OF ${items.length} LISTINGS</span>
       <div class="seg" style="min-width:260px">${[["score", "SCORE"], ["price", "PRICE"], ["miles", "MILES"], ["new", "NEWEST"]].map(([k, l]) => `<button data-act="hunt-sort" data-k="${k}" aria-pressed="${sort === k}">${l}</button>`).join("")}</div></div>
-    <div class="listings">${list.map(card).join("") || '<div class="empty" style="grid-column:1/-1">No listings match these filters.</div>'}</div>
+    <div class="listings">${list.map(card).join("") || `<div class="empty" style="grid-column:1/-1">${(NS.S.hunt.items || []).length ? "No listings match these filters." : "Nothing on the list yet. Add a car you're watching and it gets scored."}</div>`}</div>
     <p class="dim" style="font-size:13px;margin-top:18px;max-width:70ch">Score = price ×2.2 + reliability ×2.4 + fun ×1.8 + mod potential ×1.6 + (10 − risk) ×2.0. Each rated 0–10 by you.</p>`;
   };
 

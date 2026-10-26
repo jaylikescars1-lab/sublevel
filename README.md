@@ -14,6 +14,9 @@ On your phone, and nowhere else.
 - Photos are saved in IndexedDB on the device.
 - A service worker caches the app and fonts, so it opens with no signal.
 - Nothing is uploaded. Without AI the app makes no network requests besides loading its own files. With AI on, only your AI requests go to Anthropic.
+- **Shop parts** buttons open an Amazon or eBay search in your browser. Affiliate IDs, once there are any, live in `js/shop.js`.
+
+The full privacy notice is in [privacy.html](privacy.html).
 
 Because the only copy is on the phone, export a backup now and then: **More → Settings → Export backup**, and save it to Files or iCloud Drive. **Import a backup** gives two choices: **Merge it in** adds anything this garage is missing and keeps everything already here (use it to bring over changes made in the claude.ai version), and **Replace everything** restores the file exactly.
 

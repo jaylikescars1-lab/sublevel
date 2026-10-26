@@ -638,6 +638,9 @@ input[type=range]{width:100%;accent-color:var(--violet-hi);height:28px;backgroun
 .subnav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-4px 0 18px;padding:2px}
 .subnav::-webkit-scrollbar{display:none}
 .more-list{display:grid;gap:8px}
+.shop-list{display:grid;gap:8px}
+.shop-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--line-2);border-radius:12px;background:var(--bg-1);font-size:14.5px;color:var(--fg)}
+.shop-row>span:first-child{min-width:0}
 .handoff{display:flex;gap:12px 18px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 14px;padding:14px 16px;border:1px solid var(--violet-lo);border-radius:14px;background:linear-gradient(180deg,rgba(106,61,240,.10),rgba(106,61,240,.03))}
 .handoff p{margin:6px 0 0;color:var(--fg-2);font-size:14.5px;max-width:58ch}.handoff p b{color:var(--fg);font-weight:500}
 .handoff-steps{margin:0;padding-left:20px;display:grid;gap:14px;color:var(--fg-2);font-size:14.5px}.handoff-steps b{color:var(--fg);font-weight:500}a.btn{text-decoration:none}
@@ -872,6 +875,7 @@ details.more[open]>summary::before{content:"−"}
 <script src="js/ai.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/cleanup.js"></script>
+<script src="js/shop.js"></script>
 <script src="js/vendor/anthropic-sdk.js"></script>
 <script src="js/local.js"></script>
 <script src="js/boot.js"></script>

@@ -37,7 +37,8 @@
         <button class="btn" data-act="backup-import">${icon("box")}Import a backup</button>
         <span class="grow"></span>
         <button class="btn primary" data-act="backup-export">${icon("share")}Export backup</button>
-      </div>`);
+      </div>
+      ${NS.standalone ? `<p class="dim" style="font-size:13px;margin:14px 0 0;text-align:center"><a href="privacy.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Privacy</a></p>` : ""}`);
   };
 
   NS.acts["backup-export"] = async (el) => {
