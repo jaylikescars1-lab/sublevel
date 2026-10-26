@@ -5,6 +5,10 @@ compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 keep_vars = true
 
+# Where buyers send USDC on Solana (Phantom). Public on purpose: the app shows it to buyers.
+[vars]
+SOL_ADDRESS = "GG9U7S6ZC2PwmBo7NfTkNRWwstp4km49jWZzoQuuFbmx"
+
 # Paid access codes and their credit. SQLite-backed Durable Objects work on the free plan.
 [[durable_objects.bindings]]
 name = "LEDGER"

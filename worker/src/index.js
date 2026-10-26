@@ -4,14 +4,15 @@
    Two kinds of code:
      - unlimited codes you list in ACCESS_CODES (you, friends, testers)
      - paid codes, each with its own prepaid credit, kept in the Ledger below. People get one by
-       sending USDC on Base (checked on-chain, instant) or by paying on Cash App (you make the code
-       on the /admin page).
+       paying in USDC, checked on the blockchain and issued instantly: on Solana (one tap from
+       Phantom, via a Solana Pay link) or on Base. Cash App codes can be made by hand on /admin.
 
    Secrets and variables (Cloudflare dashboard → this Worker → Settings → Variables and Secrets):
      ANTHROPIC_API_KEY  your Anthropic API key
      ACCESS_CODES       optional; comma-separated unlimited codes, like "JAY-7Q2K,MIKE-91XD"
      ADMIN_TOKEN        a long password for the /admin page
-     USDC_ADDRESS       optional; your wallet address on Base, to sell credit for USDC
+     SOL_ADDRESS        optional; your Solana wallet address (Phantom), to sell credit for USDC on Solana
+     USDC_ADDRESS       optional; your wallet address on Base, to sell credit for USDC on Base
      CASHTAG            optional; your Cash App $cashtag without the $, to sell credit on Cash App
      PRICE_USD          optional; price of one credit pack in dollars (default 3)
      CREDIT_CENTS       optional; AI credit in one pack, in cents (default 200)
@@ -29,6 +30,7 @@ const MAX_BODY = 8_000_000; // bytes; a few phone photos fit, a video doesn't
 const MICROS_PER_IN = 5, MICROS_PER_OUT = 25;
 const USDC_BASE = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; // Circle's native USDC on Base
 const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"; // Transfer(address,address,uint256)
+const USDC_SOL = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // Circle's USDC mint on Solana
 
 export default {
   async fetch(req, env) {
@@ -38,6 +40,9 @@ export default {
     if (req.method === "GET" && path === "/") return json(200, { ok: true, service: "SUBLEVEL AI" }, cors);
     if (req.method === "GET" && path === "/buy/info") return buyInfo(env, cors);
     if (req.method === "POST" && path === "/buy/usdc") return buyUSDC(req, env, cors);
+    if (req.method === "POST" && path === "/buy/sol/start") return solStart(req, env, cors);
+    if (req.method === "POST" && path === "/buy/sol/claim") return solClaim(req, env, cors);
+    if (req.method === "POST" && path === "/buy/sol") return solManual(req, env, cors);
     if (req.method === "GET" && path === "/balance") return balance(req, env, cors);
     if (path === "/admin" || path.startsWith("/admin/")) return admin(req, env, path);
     if (req.method !== "POST" || path !== "/v1/messages") return fail(404, "not_found_error", "Not found.", cors);
@@ -79,7 +84,17 @@ export class Ledger extends DurableObject {
     this.sql = ctx.storage.sql;
     this.sql.exec("CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, credit INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, source TEXT, note TEXT, created TEXT)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS payments (ref TEXT PRIMARY KEY, code TEXT, credit INTEGER, created TEXT)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS pending (ref TEXT PRIMARY KEY, claim TEXT NOT NULL, code TEXT, created TEXT)");
   }
+  /* A Solana Pay payment the app is about to make: its public reference, and a hash of a secret only that phone knows. */
+  startRef(ref, claim) {
+    if (this.sql.exec("SELECT ref FROM pending WHERE ref = ?", ref).toArray().length) return { error: "exists" };
+    this.sql.exec("INSERT INTO pending (ref, claim, created) VALUES (?, ?, ?)", ref, claim, new Date().toISOString());
+    return { ok: true };
+  }
+  refInfo(ref) { return this.sql.exec("SELECT ref, claim, code FROM pending WHERE ref = ?", ref).toArray()[0] || null; }
+  refDone(ref, code) { this.sql.exec("UPDATE pending SET code = ? WHERE ref = ?", code, ref); }
+  spent(ref) { return this.sql.exec("SELECT ref FROM payments WHERE ref = ?", ref).toArray().length > 0; }
   find(code) { return this.sql.exec("SELECT code, credit, used, source, note, created FROM codes WHERE code = ?", code).toArray()[0] || null; }
   create(credit, source, note) {
     let code; do { code = newCode(); } while (this.find(code));
@@ -113,6 +128,7 @@ const cents = (micros) => Math.max(0, Math.floor(micros / 10_000));
 function buyInfo(env, cors) {
   return json(200, {
     price_usd: price(env), credit_cents: cents(packMicros(env)),
+    sol: env.SOL_ADDRESS && env.LEDGER ? { address: env.SOL_ADDRESS, network: "Solana", mint: USDC_SOL, amount: price(env) } : null,
     usdc: env.USDC_ADDRESS && env.LEDGER ? { address: env.USDC_ADDRESS, network: "Base", amount: price(env) } : null,
     cashapp: env.CASHTAG ? { cashtag: String(env.CASHTAG).replace(/^\$/, ""), amount: price(env) } : null,
   }, cors);
@@ -122,6 +138,7 @@ async function buyUSDC(req, env, cors) {
   let b; try { b = await req.json(); } catch (e) { b = {}; }
   const tx = String(b.tx || "").trim().toLowerCase();
   if (!/^0x[0-9a-f]{64}$/.test(tx)) return fail(400, "invalid_request_error", "That isn't a transaction ID. It starts with 0x and is 66 characters long.", cors, "sublevel_bad_tx");
+  if (await ledger(env).spent("base:" + tx)) return fail(409, "invalid_request_error", "That transaction was already used for a code.", cors, "sublevel_tx_used");
   let paid;
   try { paid = await paidUSDC(env, tx); } catch (e) { return fail(502, "api_error", "Couldn't check the Base network right now. Try again in a minute.", cors, "sublevel_chain_down"); }
   if (paid.error === "not_found") return fail(404, "not_found_error", "That transaction isn't on Base yet. If you just sent it, wait a minute and try again.", cors, "sublevel_tx_not_found");
@@ -154,6 +171,93 @@ async function rpc(env, method, params) {
   if (j.error) throw new Error(j.error.message || "rpc error");
   return j.result;
 }
+/* ---------- USDC on Solana (Phantom) ---------- */
+/* One tap: the app registers a random reference, opens a Solana Pay link in Phantom with it, and then
+   claims with a secret. The reference finds the payment on-chain; the secret means only that phone can
+   claim it, even though anyone can see the payment. */
+async function solStart(req, env, cors) {
+  if (!env.SOL_ADDRESS || !env.LEDGER) return fail(404, "not_found_error", "Solana payments aren't set up.", cors);
+  const b = await req.json().catch(() => ({}));
+  if (!isKey(b.ref) || !/^[0-9a-f]{64}$/.test(String(b.claim || ""))) return fail(400, "invalid_request_error", "Bad payment request.", cors);
+  const r = await ledger(env).startRef(b.ref, b.claim);
+  if (r.error) return fail(409, "invalid_request_error", "That payment was already started.", cors);
+  return json(200, { ok: true }, cors);
+}
+async function solClaim(req, env, cors) {
+  if (!env.SOL_ADDRESS || !env.LEDGER) return fail(404, "not_found_error", "Solana payments aren't set up.", cors);
+  const b = await req.json().catch(() => ({}));
+  const info = isKey(b.ref) ? await ledger(env).refInfo(b.ref) : null;
+  if (!info) return fail(404, "not_found_error", "We don't know that payment.", cors, "sublevel_ref_unknown");
+  if ((await sha256(String(b.secret || ""))) !== info.claim) return fail(403, "permission_error", "That payment belongs to another phone.", cors, "sublevel_ref_secret");
+  if (info.code) { const row = await ledger(env).find(info.code); return json(200, { code: row.code, remaining_cents: cents(row.credit - row.used), added_cents: 0, already: true }, cors); }
+  let sigs;
+  try { sigs = await solRpc(env, "getSignaturesForAddress", [b.ref, { limit: 10, commitment: "confirmed" }]); } catch (e) { return fail(502, "api_error", "Couldn't check Solana right now.", cors, "sublevel_chain_down"); }
+  for (const s of sigs || []) {
+    if (s.err) continue;
+    const out = await creditSOL(env, s.signature, readCode(req) || String(b.code || "").trim().toUpperCase(), cors);
+    if (out.row) { await ledger(env).refDone(b.ref, out.row.code); return json(200, out.body, cors); }
+    if (out.res && out.res.status !== 409) return out.res;
+  }
+  return fail(404, "not_found_error", "Not seen yet. If you just paid, it shows up within a few seconds.", cors, "sublevel_tx_not_found");
+}
+/* Fallback: the buyer sent USDC on their own and pastes the transaction signature. */
+async function solManual(req, env, cors) {
+  if (!env.SOL_ADDRESS || !env.LEDGER) return fail(404, "not_found_error", "Solana payments aren't set up.", cors);
+  const b = await req.json().catch(() => ({}));
+  const sig = String(b.sig || "").trim();
+  if (b58len(sig) !== 64) return fail(400, "invalid_request_error", "That isn't a Solana transaction signature. Copy it from the payment in Phantom.", cors, "sublevel_bad_tx");
+  const out = await creditSOL(env, sig, readCode(req) || String(b.code || "").trim().toUpperCase(), cors);
+  return out.row ? json(200, out.body, cors) : out.res;
+}
+async function creditSOL(env, sig, code, cors) {
+  const used = () => ({ res: fail(409, "invalid_request_error", "That transaction was already used for a code.", cors, "sublevel_tx_used") });
+  if (await ledger(env).spent("sol:" + sig)) return used();
+  let paid;
+  try { paid = await paidSOL(env, sig); } catch (e) { return { res: fail(502, "api_error", "Couldn't check Solana right now. Try again in a minute.", cors, "sublevel_chain_down") }; }
+  if (paid.error === "not_found") return { res: fail(404, "not_found_error", "That transaction isn't on Solana yet. If you just sent it, wait a few seconds and try again.", cors, "sublevel_tx_not_found") };
+  if (paid.error === "failed") return { res: fail(400, "invalid_request_error", "That transaction failed on Solana, so nothing was sent.", cors, "sublevel_tx_failed") };
+  const packs = Number(paid.units / BigInt(Math.round(price(env) * 1e6))); // USDC has 6 decimals
+  if (packs < 1) return { res: fail(400, "invalid_request_error", `That transaction didn't send at least ${price(env)} USDC on Solana to SUBLEVEL's wallet.`, cors, "sublevel_tx_short") };
+  const row = await ledger(env).redeem("sol:" + sig, packs * packMicros(env), "usdc-sol", code);
+  if (row.error === "used") return used();
+  return { row, body: { code: row.code, remaining_cents: cents(row.credit - row.used), added_cents: cents(packs * packMicros(env)) } };
+}
+/* USDC that SOL_ADDRESS gained in one Solana transaction, from the token balances before and after. */
+async function paidSOL(env, sig) {
+  const tx = await solTx(env, sig);
+  if (!tx) return { error: "not_found" };
+  if (!tx.meta || tx.meta.err) return { error: "failed" };
+  const mine = (list) => (list || []).filter((t) => t.mint === USDC_SOL && t.owner === env.SOL_ADDRESS).reduce((a, t) => a + BigInt(t.uiTokenAmount.amount), 0n);
+  const units = mine(tx.meta.postTokenBalances) - mine(tx.meta.preTokenBalances);
+  return { units: units > 0n ? units : 0n };
+}
+/* Solana keeps adding transaction versions; ask for the newest the node says it needs. */
+async function solTx(env, sig) {
+  let v = 1;
+  for (let i = 0; i < 4; i++) {
+    try { return await solRpc(env, "getTransaction", [sig, { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: v }]); }
+    catch (e) { const m = /maxSupportedTransactionVersion\\?"?\s*:\s*(\d+)/.exec(e.message); if (m && +m[1] > v) { v = +m[1]; continue; } throw e; }
+  }
+  throw new Error("unsupported transaction version");
+}
+async function solRpc(env, method, params) {
+  const r = await fetch(env.SOLANA_RPC || "https://api.mainnet-beta.solana.com", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || "rpc error");
+  return j.result;
+}
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+/* Bytes in a base58 string, or -1 if it isn't base58. Solana keys are 32 bytes, signatures 64. */
+function b58len(s) {
+  s = String(s || ""); if (!s || s.length > 100) return -1;
+  let n = 0n; for (const c of s) { const i = B58.indexOf(c); if (i < 0) return -1; n = n * 58n + BigInt(i); }
+  let len = 0; while (n > 0n) { n >>= 8n; len++; }
+  for (const c of s) { if (c === "1") len++; else break; }
+  return len;
+}
+const isKey = (s) => b58len(s) === 32;
+async function sha256(s) { const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return Array.from(new Uint8Array(d), (x) => x.toString(16).padStart(2, "0")).join(""); }
+
 async function balance(req, env, cors) {
   const code = readCode(req);
   if (listed(env, code)) return json(200, { unlimited: true }, cors);

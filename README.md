@@ -28,7 +28,7 @@ With AI on, Claude researches that exact car and fills in the spec sheet (fluids
 
 AI is optional and turns on in **More → Settings** one of two ways:
 
-- **Access code:** SUBLEVEL's own server (`worker/`, a small Cloudflare Worker) holds the Anthropic key, so people only need a code. Setting it up takes about 15 minutes from a phone: see [worker/README.md](worker/README.md). Until it's deployed and `HOSTED_URL` is set in `js/local.js`, this option stays hidden.
+- **Access code:** SUBLEVEL's own server (`worker/`, a small Cloudflare Worker) holds the Anthropic key, so people only need a code. They buy one in the app with USDC through Phantom, and it's issued instantly. Setting it up takes about 15 minutes from a phone: see [worker/README.md](worker/README.md). Until it's deployed and `HOSTED_URL` is set in `js/local.js`, this option stays hidden.
 - **Your own Anthropic API key:** stored only on your phone, never included in backups, and sent only to Anthropic's API.
 
 Requests are made with the official Anthropic SDK, bundled in `js/vendor/`. Without AI, cars start from a general template.

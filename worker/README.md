@@ -4,8 +4,8 @@ A small Cloudflare Worker that lets people use SUBLEVEL's AI with an **access co
 
 There are two kinds of code:
 
-- **Unlimited codes** you hand out yourself (you, friends, testers).
-- **Paid codes** with their own prepaid credit. People buy them in the app: with **USDC on Base** the server checks the payment on the blockchain and gives them a code instantly; with **Cash App** you make their code on your admin page and send it to them.
+- **Paid codes** with their own prepaid credit. People buy them in the app with **USDC through Phantom**: one tap opens Phantom with the payment filled in, the server finds the payment on the Solana blockchain, and the code is issued instantly. Nobody has to make or send codes by hand.
+- **Unlimited codes** you hand out yourself (you, friends, testers), if you want any.
 
 Everything below works from a phone browser. It takes about 15 minutes.
 
@@ -38,7 +38,7 @@ In the worker: **Settings → Variables and Secrets → Add**, type **Secret** f
 | Name | Value |
 | --- | --- |
 | `ANTHROPIC_API_KEY` | the key from step 1 |
-| `ADMIN_TOKEN` | a long password for your admin page (20+ random characters) |
+| `SOLANA_RPC` | recommended: a Solana network URL from a free provider like Helius (see step 5) |
 | `ACCESS_CODES` | optional: unlimited codes you hand out, separated by commas, like `JAY-7Q2K,MIKE-91XD` |
 
 Make unlimited codes hard to guess: a name plus 4 random letters and numbers works.
@@ -53,21 +53,27 @@ const HOSTED_URL = "https://sublevel-ai.yourname.workers.dev";
 
 (Or send the URL to Claude and it'll do it.) Then in the app: **More → Settings**, type your access code, tap **Turn on**, and it runs a test.
 
-## 5. Sell AI credit (optional)
+## 5. Selling AI credit with Phantom
 
-Add any of these the same way (Settings → Variables and Secrets):
-
-| Name | Value |
-| --- | --- |
-| `USDC_ADDRESS` | your wallet's address on **Base** (starts with 0x). Turns on instant crypto payments. |
-| `CASHTAG` | your Cash App $cashtag, without the $. Turns on Cash App payments. |
-| `PRICE_USD` | price of one credit pack. Default `3`. |
-| `CREDIT_CENTS` | AI credit in one pack, in cents. Default `200` ($2.00). |
+This is already switched on: your Phantom wallet's Solana address is in `wrangler.toml` as `SOL_ADDRESS`, so payments go straight to your Phantom wallet.
 
 **How a sale works**
 
-- **USDC (automatic):** the buyer sends USDC on the Base network to your address and pastes the transaction ID into the app. The server checks the blockchain: right coin, right network, sent to you, enough money, not used before. Then it gives them a code with credit. Sending 2× the price gets 2 packs. Paying again with their code tops it up.
-- **Cash App (by hand):** the buyer pays your $cashtag with their Instagram or email in the note. Open `https://sublevel-ai.yourname.workers.dev/admin` on your phone, enter your admin password and what they paid, tap **Make code**, and send them the code. They enter it under **Have a code?** in Settings. The admin page also lists every code and how much credit it has left.
+1. In the app, the buyer taps **Get AI credit → Pay 3 USDC in Phantom**.
+2. Phantom opens with 3 USDC to your wallet filled in. They approve it and switch back.
+3. The app sees the payment on the Solana blockchain within a few seconds and gives them their own code with $2.00 of credit. AI turns on by itself.
+
+If the app gets closed while they're in Phantom, it picks the payment up the next time it opens. If Phantom doesn't open from the link, the buyer can send 3 USDC to your address by hand and paste the transaction signature instead.
+
+The server checks every payment on the blockchain: it has to be real USDC, on Solana, sent to your wallet, at least the price, and never used before. Each payment carries a random reference plus a secret that only the buyer's phone knows, so nobody watching your wallet can claim someone else's payment.
+
+**Settings you can change** (Settings → Variables and Secrets):
+
+| Name | Value |
+| --- | --- |
+| `PRICE_USD` | price of one credit pack. Default `3`. |
+| `CREDIT_CENTS` | AI credit in one pack, in cents. Default `200` ($2.00). |
+| `SOLANA_RPC` | Solana's free public endpoint limits how often it can be asked. For reliable checks, sign up for a free account at a provider like Helius, copy your mainnet URL, and paste it here. |
 
 **How credit is used up**
 
@@ -76,9 +82,10 @@ Each answer is charged from the code's credit by the tokens Claude actually used
 **Things to know**
 
 - Anthropic's terms don't allow sharing your API key, which is why buyers get a SUBLEVEL code instead of a key.
-- Turning USDC into dollars needs an exchange account (Coinbase, for example), which needs ID and an adult owner.
+- USDC lands in your Phantom wallet. Turning it into dollars needs an exchange account (Coinbase, for example), which needs ID and an adult owner.
 - Money from sales is income, so keep a record of it for taxes.
-- The server uses Base's free public network endpoint. If it ever gets busy, add a `BASE_RPC` variable with an endpoint from a provider like Alchemy or Infura (free tiers work).
+
+**Also built in, switched off:** USDC on Base (`USDC_ADDRESS`), and Cash App with codes you make by hand on the `/admin` page (`CASHTAG` and `ADMIN_TOKEN`). Leave them unset to stay crypto-only.
 
 ## Running it
 

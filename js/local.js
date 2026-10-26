@@ -142,6 +142,7 @@
   };
   const usd = (c) => "$" + (c / 100).toFixed(2);
   NS.aiSettingsAfter = async () => {
+    if (HOSTED_URL && pending()) pollSol(30);
     const el = document.getElementById("ai-credit"); if (!el || aiMode() !== "hosted") return;
     try { const b = await hosted("/balance"); el.innerHTML = b.unlimited ? "Unlimited access." : `<b style="color:var(--fg)">${usd(b.remaining_cents)}</b> of AI credit left.`; }
     catch (e) { el.textContent = ""; }
@@ -150,9 +151,20 @@
     NS.sheet(NS.sheetHead("AI CREDIT", "Turn on AI") + `<div id="buy-body" class="muted">Loading…</div>`);
     let info;
     try { info = await hosted("/buy/info"); } catch (e) { document.getElementById("buy-body").textContent = "Couldn't reach SUBLEVEL's server. Check your connection and try again."; return; }
+    NS._buyInfo = info;
     const credit = usd(info.credit_cents), price = "$" + info.price_usd;
     const parts = [`<p style="margin:0 0 14px;font-size:15px;color:var(--fg-2)"><b style="color:var(--fg)">${price} gets ${credit} of AI credit.</b> That's roughly ${Math.max(1, Math.round(info.credit_cents / 35))} car setups or ${Math.round(info.credit_cents / 8)} questions. It doesn't expire. ${getCode() ? "It's added to your code." : "You get your own access code."}</p>`];
-    if (info.usdc) parts.push(`<div class="infobox"><h4>PAY WITH USDC · INSTANT</h4>
+    if (info.sol) parts.push(`<div class="infobox"><h4>PAY WITH PHANTOM · INSTANT</h4>
+      <p style="margin:0;color:var(--fg-2);font-size:14.5px">Pays <b style="color:var(--fg)">${info.sol.amount} USDC on Solana</b>. Phantom opens with the payment filled in. Approve it, then come back here.</p>
+      <div class="row" style="margin-top:10px"><button class="btn primary" data-act="buy-sol-start">${NS.icon("spark")}Pay ${info.sol.amount} USDC in Phantom</button></div>
+      <div id="sol-msg" style="font-size:14px;margin-top:8px"></div>
+      <details class="more" style="margin-top:10px"><summary class="lbl">Phantom didn't open?</summary>
+        <p class="dim" style="font-size:13.5px;margin:8px 0 0">Send exactly ${info.sol.amount} USDC on Solana to:</p>
+        <div class="row" style="margin-top:6px;flex-wrap:nowrap"><span class="mono" id="buy-addr" style="flex:1;min-width:0;word-break:break-all;font-size:13px;color:var(--fg)">${NS.esc(info.sol.address)}</span><button class="btn sm" data-act="buy-copy">Copy</button></div>
+        <p class="dim" style="font-size:13.5px;margin:8px 0 0">Then open that payment in Phantom's activity, copy its transaction signature (or view it on Solscan and copy it there), and paste it here:</p>
+        <div class="row" style="margin-top:6px;flex-wrap:nowrap"><input class="input mono" id="sol-sig" placeholder="Transaction signature" autocomplete="off" spellcheck="false" style="flex:1"><button class="btn sm primary" data-act="buy-sol-sig">Get my code</button></div>
+      </details></div>`);
+    if (info.usdc) parts.push(`<div class="infobox" style="margin-top:12px"><h4>PAY WITH USDC ON BASE · INSTANT</h4>
       <p style="margin:0;color:var(--fg-2);font-size:14.5px">Send <b style="color:var(--fg)">${info.usdc.amount} USDC on the Base network</b> to:</p>
       <div class="row" style="margin-top:8px;flex-wrap:nowrap"><span class="mono" id="buy-addr" style="flex:1;min-width:0;word-break:break-all;font-size:13px;color:var(--fg)">${NS.esc(info.usdc.address)}</span><button class="btn sm" data-act="buy-copy">Copy</button></div>
       <p class="dim" style="font-size:13px;margin:8px 0 0">Only USDC, and only on Base. Other coins or networks can't be credited. Then paste the transaction ID (it starts with 0x) from your wallet:</p>
@@ -161,9 +173,73 @@
     if (info.cashapp) parts.push(`<div class="infobox" style="margin-top:12px"><h4>PAY WITH CASH APP</h4>
       <p style="margin:0;color:var(--fg-2);font-size:14.5px">Pay ${price} to <b style="color:var(--fg)">$${NS.esc(info.cashapp.cashtag)}</b>. In the note, put your Instagram or email so your code can be sent to you, usually within a day. Then enter it under <b style="color:var(--fg)">Have a code?</b> in Settings.</p>
       <div class="row" style="margin-top:10px"><a class="btn sm" href="https://cash.app/$${encodeURIComponent(info.cashapp.cashtag)}/${info.cashapp.amount}" target="_blank" rel="noopener">Open Cash App</a></div></div>`);
-    if (!info.usdc && !info.cashapp) parts.push(`<p class="dim">Buying credit isn't set up yet. If someone gave you a code, enter it in Settings.</p>`);
+    if (!info.sol && !info.usdc && !info.cashapp) parts.push(`<p class="dim">Buying credit isn't set up yet. If someone gave you a code, enter it in Settings.</p>`);
     document.getElementById("buy-body").innerHTML = parts.join("");
   };
+  /* Phantom: register a random reference with a hash of a secret, open a Solana Pay link, then claim with the secret.
+     The pending payment is kept on the phone so the app picks it up again after switching back from Phantom. */
+  const PENDING = "sublevel.solpay";
+  const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const b58 = (bytes) => { let n = 0n; for (const x of bytes) n = n * 256n + BigInt(x); let s = ""; while (n > 0n) { s = B58[Number(n % 58n)] + s; n /= 58n; } for (const x of bytes) { if (x === 0) s = "1" + s; else break; } return s; };
+  const hex = (bytes) => Array.from(bytes, (x) => x.toString(16).padStart(2, "0")).join("");
+  const sha256 = async (s) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))));
+  const pending = () => { try { const p = JSON.parse(localStorage.getItem(PENDING) || "null"); return p && Date.now() - p.at < 864e5 ? p : null; } catch (e) { return null; } };
+  const setPending = (p) => { try { p ? localStorage.setItem(PENDING, JSON.stringify(p)) : localStorage.removeItem(PENDING); } catch (e) {} };
+  function paidHTML(r, isNew) {
+    return `<span class="ok">Paid.</span> ${usd(r.added_cents)} added, ${usd(r.remaining_cents)} total.` + (isNew ? `<div style="margin-top:8px">Your code is <b class="mono" style="color:var(--fg);font-size:16px">${NS.esc(r.code)}</b>. Write it down: it's how you get your credit back on a new phone. AI is on.</div>` : " AI is on.");
+  }
+  async function paid(r, el) {
+    const isNew = r.code !== getCode();
+    try { localStorage.setItem(CODE, r.code); } catch (e) {}
+    await NS.connectAI();
+    if (el) el.innerHTML = paidHTML(r, isNew);
+    else NS.sheet(NS.sheetHead("AI CREDIT", "Payment received") + `<div style="font-size:15px">${paidHTML(r, isNew)}</div><div class="sheet-foot"><span class="grow"></span><button class="btn primary" data-act="close-sheet">Done</button></div>`);
+  }
+  async function pollSol(seconds) {
+    if (NS._solPolling) return; NS._solPolling = true;
+    const end = Date.now() + seconds * 1000;
+    try {
+      while (Date.now() < end) {
+        const p = pending(); if (!p) return;
+        const el = document.getElementById("sol-msg");
+        try {
+          const r = await hosted("/buy/sol/claim", { method: "POST", body: JSON.stringify({ ref: p.ref, secret: p.secret }) });
+          setPending(null); await paid(r, el); return;
+        } catch (e) {
+          if (e.ec === "sublevel_ref_unknown" || e.ec === "sublevel_ref_secret") { setPending(null); if (el) el.innerHTML = `<span class="warn">${NS.esc(e.message)}</span>`; return; }
+          if (e.ec !== "sublevel_tx_not_found" && el) el.innerHTML = `<span class="warn">${NS.esc(e.message)}</span>`;
+        }
+        await new Promise((res) => setTimeout(res, 4000));
+      }
+      const el = document.getElementById("sol-msg");
+      if (el && pending()) el.innerHTML = `Haven't seen the payment yet. If you paid, it'll show up next time you open Settings.`;
+    } finally { NS._solPolling = false; }
+  }
+  NS.acts["buy-sol-start"] = async (el) => {
+    const info = NS._buyInfo; const msg = document.getElementById("sol-msg"); if (!info || !info.sol) return;
+    const ref = b58(crypto.getRandomValues(new Uint8Array(32))), secret = hex(crypto.getRandomValues(new Uint8Array(32)));
+    el.disabled = true;
+    try { await hosted("/buy/sol/start", { method: "POST", body: JSON.stringify({ ref, claim: await sha256(secret) }) }); }
+    catch (e) { msg.innerHTML = `<span class="warn">${NS.esc(e.message)}</span>`; el.disabled = false; return; }
+    setPending({ ref, secret, at: Date.now() });
+    msg.innerHTML = `<span class="thinking">Waiting for your payment</span><div class="dim" style="font-size:13px;margin-top:4px">Approve it in Phantom, then switch back. This updates by itself.</div>`;
+    el.disabled = false;
+    pollSol(180);
+    location.href = NS.solPayURL(info.sol, ref);
+  };
+  /* A Solana Pay transfer request: Phantom opens it with the amount, token and reference filled in. */
+  NS.solPayURL = (sol, ref) => `solana:${sol.address}?amount=${sol.amount}&spl-token=${sol.mint}&reference=${ref}&label=SUBLEVEL&message=${encodeURIComponent("SUBLEVEL AI credit")}`;
+  NS.acts["buy-sol-sig"] = async (el) => {
+    const sig = (document.getElementById("sol-sig").value || "").trim(); const msg = document.getElementById("sol-msg");
+    if (!/^[1-9A-HJ-NP-Za-km-z]{80,90}$/.test(sig)) { msg.innerHTML = `<span class="warn">That isn't a Solana transaction signature. It's a long string of letters and numbers from the payment in Phantom.</span>`; return; }
+    el.disabled = true; msg.innerHTML = `<span class="thinking">Checking the payment</span>`;
+    try { await paid(await hosted("/buy/sol", { method: "POST", body: JSON.stringify({ sig }) }), msg); }
+    catch (e) { msg.innerHTML = `<span class="warn">${NS.esc(e.message)}</span>`; }
+    finally { el.disabled = false; }
+  };
+  // Back from Phantom (or a fresh open): keep looking for a payment that was started.
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && HOSTED_URL && pending()) pollSol(90); });
+  window.addEventListener("load", () => { if (HOSTED_URL && pending()) setTimeout(() => pollSol(90), 2500); });
   NS.acts["buy-copy"] = async (el) => {
     const t = document.getElementById("buy-addr").textContent;
     try { await navigator.clipboard.writeText(t); el.textContent = "Copied"; } catch (e) { el.textContent = "Select it"; }
