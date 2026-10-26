@@ -19,6 +19,7 @@
     if (c === "bad_request") return "Claude couldn't take that request. Try again with less text.";
     if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "capability_disabled") { NS.sample = null; return "Claude isn't allowed for this page. Turn it on from the page's permissions to use this."; }
     if (c === "bad_code") return "That access code didn't work. Check it in Settings.";
+    if (c === "credit_out") return "Your AI credit is used up. Add more in Settings.";
     if (c === "ai_paused") return "SUBLEVEL's AI is paused right now. Try again later.";
     if (c === "ai_server") return "SUBLEVEL's AI is having a problem on our end. Try again later.";
     if (c === "no_credit") return "Your Anthropic account is out of credit. Add some at console.anthropic.com → Billing, then try again.";

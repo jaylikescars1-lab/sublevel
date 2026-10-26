@@ -4,3 +4,12 @@ main = "src/index.js"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 keep_vars = true
+
+# Paid access codes and their credit. SQLite-backed Durable Objects work on the free plan.
+[[durable_objects.bindings]]
+name = "LEDGER"
+class_name = "Ledger"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Ledger"]

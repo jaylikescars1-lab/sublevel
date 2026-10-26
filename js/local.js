@@ -46,6 +46,7 @@
     const ec = body.details && body.details.error_code;
     if (ec === "sublevel_code_invalid") return { ...raw, code: "bad_code" };
     if (ec === "sublevel_paused") return { ...raw, code: "ai_paused" };
+    if (ec === "sublevel_no_credit") return { ...raw, code: "credit_out" };
     // On SUBLEVEL's server, account problems are the server's, not this person's.
     if (aiMode() === "hosted" && (type === "billing_error" || status === 401 || status === 402 || status === 403 || status === 404 || is(/credit balance|usage limits|spend limit/i))) return { ...raw, code: "ai_server" };
     if (type === "billing_error" || status === 402 || is(/credit balance/i)) return { ...raw, code: "no_credit" };
@@ -122,13 +123,63 @@
     let body;
     if (mode === "key") body = p(`<b class="ok">On.</b> Uses your Anthropic API key, saved only on this phone (it's never in backups). Model: Claude Opus 5.5. A full car setup costs about 15–30¢, a question or estimate a few cents.`) + msg +
       `<div class="row" style="margin-top:10px"><button class="btn sm" data-act="ai-test">${NS.icon("spark")}Test it</button><button class="btn sm danger" data-act="ai-key-clear">Remove key</button></div>`;
-    else if (mode === "hosted") body = p(`<b class="ok">On.</b> Using SUBLEVEL AI with access code <span class="mono" style="color:var(--fg)">${NS.esc(getCode())}</span>. Model: Claude Opus 5.5.`) + msg +
-      `<div class="row" style="margin-top:10px"><button class="btn sm" data-act="ai-test">${NS.icon("spark")}Test it</button><button class="btn sm danger" data-act="ai-code-clear">Remove code</button></div>`;
-    else if (HOSTED_URL) body = p(`<b style="color:var(--fg)">Off.</b> Enter your access code and SUBLEVEL can ${what}.`) +
-      `<div class="row" style="margin-top:10px;flex-wrap:nowrap"><input class="input mono" id="ai-code" placeholder="ACCESS CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:1;text-transform:uppercase"><button class="btn primary sm" data-act="ai-code-save">Turn on</button></div>` + msg +
+    else if (mode === "hosted") body = p(`<b class="ok">On.</b> Using SUBLEVEL AI with access code <span class="mono" style="color:var(--fg)">${NS.esc(getCode())}</span>. Model: Claude Opus 5.5.`) +
+      `<div id="ai-credit" class="muted" style="font-size:14px;margin-top:6px"></div>` + msg +
+      `<div class="row" style="margin-top:10px"><button class="btn sm" data-act="ai-test">${NS.icon("spark")}Test it</button><button class="btn sm" data-act="ai-buy">${NS.icon("plus")}Add credit</button><button class="btn sm danger" data-act="ai-code-clear">Remove code</button></div>`;
+    else if (HOSTED_URL) body = p(`<b style="color:var(--fg)">Off.</b> Turn it on and SUBLEVEL can ${what}.`) +
+      `<div class="row" style="margin-top:10px"><button class="btn primary sm" data-act="ai-buy">${NS.icon("spark")}Get AI credit</button></div>` +
+      `<div class="lbl" style="margin:14px 0 0">Have a code?</div><div class="row" style="margin-top:8px;flex-wrap:nowrap"><input class="input mono" id="ai-code" placeholder="ACCESS CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:1;text-transform:uppercase"><button class="btn primary sm" data-act="ai-code-save">Turn on</button></div>` + msg +
       `<details class="more" style="margin-top:12px"><summary class="lbl">Use your own Anthropic key instead</summary><p class="dim" style="font-size:13.5px;margin:8px 0 0">Get one at console.anthropic.com → API Keys. It's saved only on this phone and only sent to Anthropic.</p>${keyRow}</details>`;
     else body = p(`<b style="color:var(--fg)">Off.</b> Add an Anthropic API key to have SUBLEVEL ${what}. Get one at <b style="color:var(--fg)">console.anthropic.com</b> → API Keys (needs a few dollars of credit). It's saved only on this phone and only sent to Anthropic.`) + keyRow + msg;
     return `<div class="infobox"><h4>AI · CLAUDE</h4>${body}</div>`;
+  };
+  /* ---------- buying AI credit (SUBLEVEL's server checks the payment and hands back a code) ---------- */
+  const hosted = async (path, opts = {}) => {
+    const r = await fetch(HOSTED_URL + path, { ...opts, headers: { "content-type": "application/json", ...(getCode() ? { "x-sublevel-code": getCode() } : {}), ...(opts.headers || {}) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw { status: r.status, message: (j.error && j.error.message) || "Something went wrong. Try again.", ec: j.error && j.error.details && j.error.details.error_code };
+    return j;
+  };
+  const usd = (c) => "$" + (c / 100).toFixed(2);
+  NS.aiSettingsAfter = async () => {
+    const el = document.getElementById("ai-credit"); if (!el || aiMode() !== "hosted") return;
+    try { const b = await hosted("/balance"); el.innerHTML = b.unlimited ? "Unlimited access." : `<b style="color:var(--fg)">${usd(b.remaining_cents)}</b> of AI credit left.`; }
+    catch (e) { el.textContent = ""; }
+  };
+  NS.acts["ai-buy"] = async () => {
+    NS.sheet(NS.sheetHead("AI CREDIT", "Turn on AI") + `<div id="buy-body" class="muted">Loading…</div>`);
+    let info;
+    try { info = await hosted("/buy/info"); } catch (e) { document.getElementById("buy-body").textContent = "Couldn't reach SUBLEVEL's server. Check your connection and try again."; return; }
+    const credit = usd(info.credit_cents), price = "$" + info.price_usd;
+    const parts = [`<p style="margin:0 0 14px;font-size:15px;color:var(--fg-2)"><b style="color:var(--fg)">${price} gets ${credit} of AI credit.</b> That's roughly ${Math.max(1, Math.round(info.credit_cents / 35))} car setups or ${Math.round(info.credit_cents / 8)} questions. It doesn't expire. ${getCode() ? "It's added to your code." : "You get your own access code."}</p>`];
+    if (info.usdc) parts.push(`<div class="infobox"><h4>PAY WITH USDC · INSTANT</h4>
+      <p style="margin:0;color:var(--fg-2);font-size:14.5px">Send <b style="color:var(--fg)">${info.usdc.amount} USDC on the Base network</b> to:</p>
+      <div class="row" style="margin-top:8px;flex-wrap:nowrap"><span class="mono" id="buy-addr" style="flex:1;min-width:0;word-break:break-all;font-size:13px;color:var(--fg)">${NS.esc(info.usdc.address)}</span><button class="btn sm" data-act="buy-copy">Copy</button></div>
+      <p class="dim" style="font-size:13px;margin:8px 0 0">Only USDC, and only on Base. Other coins or networks can't be credited. Then paste the transaction ID (it starts with 0x) from your wallet:</p>
+      <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input class="input mono" id="buy-tx" placeholder="0x…" autocomplete="off" spellcheck="false" style="flex:1"><button class="btn primary sm" data-act="buy-usdc">Get my code</button></div>
+      <div id="buy-msg" style="font-size:14px;margin-top:8px"></div></div>`);
+    if (info.cashapp) parts.push(`<div class="infobox" style="margin-top:12px"><h4>PAY WITH CASH APP</h4>
+      <p style="margin:0;color:var(--fg-2);font-size:14.5px">Pay ${price} to <b style="color:var(--fg)">$${NS.esc(info.cashapp.cashtag)}</b>. In the note, put your Instagram or email so your code can be sent to you, usually within a day. Then enter it under <b style="color:var(--fg)">Have a code?</b> in Settings.</p>
+      <div class="row" style="margin-top:10px"><a class="btn sm" href="https://cash.app/$${encodeURIComponent(info.cashapp.cashtag)}/${info.cashapp.amount}" target="_blank" rel="noopener">Open Cash App</a></div></div>`);
+    if (!info.usdc && !info.cashapp) parts.push(`<p class="dim">Buying credit isn't set up yet. If someone gave you a code, enter it in Settings.</p>`);
+    document.getElementById("buy-body").innerHTML = parts.join("");
+  };
+  NS.acts["buy-copy"] = async (el) => {
+    const t = document.getElementById("buy-addr").textContent;
+    try { await navigator.clipboard.writeText(t); el.textContent = "Copied"; } catch (e) { el.textContent = "Select it"; }
+  };
+  NS.acts["buy-usdc"] = async (el) => {
+    const tx = (document.getElementById("buy-tx").value || "").trim(); const msg = document.getElementById("buy-msg");
+    if (!/^0x[0-9a-fA-F]{64}$/.test(tx)) { msg.innerHTML = `<span class="warn">That isn't a transaction ID. It starts with 0x and is 66 characters long.</span>`; return; }
+    el.disabled = true; msg.innerHTML = `<span class="thinking">Checking the payment</span>`;
+    try {
+      const r = await hosted("/buy/usdc", { method: "POST", body: JSON.stringify({ tx }) });
+      const isNew = r.code !== getCode();
+      try { localStorage.setItem(CODE, r.code); } catch (e) {}
+      await NS.connectAI();
+      msg.innerHTML = `<span class="ok">Paid.</span> ${usd(r.added_cents)} added, ${usd(r.remaining_cents)} total.` + (isNew ? `<div style="margin-top:8px">Your code is <b class="mono" style="color:var(--fg);font-size:16px">${NS.esc(r.code)}</b>. Write it down: it's how you get your credit back on a new phone. AI is on.</div>` : "");
+    } catch (e) { msg.innerHTML = `<span class="warn">${NS.esc(e.message)}</span>`; }
+    finally { el.disabled = false; }
   };
   NS.acts["ai-code-save"] = async () => {
     const v = (document.getElementById("ai-code").value || "").trim().toUpperCase(); const msg = document.getElementById("ai-msg");

@@ -42,6 +42,7 @@
         <button class="btn primary" data-act="backup-export">${icon("share")}Export backup</button>
       </div>
       ${NS.standalone ? `<p class="dim" style="font-size:13px;margin:14px 0 0;text-align:center"><a href="privacy.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Privacy</a></p>` : ""}`);
+    if (NS.aiSettingsAfter) NS.aiSettingsAfter();
   };
 
   NS.acts["backup-export"] = async (el) => {
