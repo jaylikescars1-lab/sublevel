@@ -16,7 +16,7 @@
     plugs: obj({ part: str, gap: str, torque: str }),
     timing: obj({ type: { type: "string", enum: ["belt", "chain"] }, interval: str, interference: { type: "string", enum: ["yes", "no", "unknown"] } }),
     wheels: obj({ bolt: str, centerBore: str, lugTorque: str, lugThread: str, stock: obj({ dia: int, width: numb, offset: int, tire: str }) }),
-    fitment: obj({ lipOut: int, innerLimit: int, stockGap: int }),
+    fitment: obj({ lipOut: int, innerLimit: int, stockGap: int, suspension: { type: "string", enum: ["strut", "double_wishbone", "multilink"] }, stockCamber: numb, bump: int }),
     notes: str,
   });
   const CAR = obj({ year: int, make: str, model: str, trim: str, chassis: str, engine: str, color: str, paintHex: str,
@@ -43,7 +43,7 @@ ALREADY DONE / NOTES FROM THE OWNER: ${q.notes || "none"}
 
 Return JSON:
 - car: the exact car. body is coupe, sedan, hatch, wagon, suv or truck. paintHex: a typical factory color for it${q.color ? ` (owner says: ${q.color})` : ""}. valueEstimate: rough private-party value in USD at this mileage, average condition.
-- specs: oil (viscosity spec, capacity with filter, filter), coolant type, spark plugs (type, gap, torque), timing (belt or chain, replacement interval, interference yes/no/unknown), wheels (bolt pattern, center bore, lug torque, lug thread, factory wheel and tire for this trim). fitment, in mm, front corner at stock height: lipOut = hub face out to the fender lip, innerLimit = hub face in to the nearest suspension part, stockGap = top of tire to fender lip.
+- specs: oil (viscosity spec, capacity with filter, filter), coolant type, spark plugs (type, gap, torque), timing (belt or chain, replacement interval, interference yes/no/unknown), wheels (bolt pattern, center bore, lug torque, lug thread, factory wheel and tire for this trim). fitment, in mm, front corner at stock height: lipOut = hub face out to the fender lip, innerLimit = hub face in to the nearest suspension part, stockGap = top of tire to fender lip, bump = suspension travel from rest to the bump stop; plus suspension = front suspension type, stockCamber = factory front camber in degrees (negative = top leans in).
 - knownIssues: 3-6 well-known problems for this platform or engine, each with what to check.
 - fitPresets: 4-5 popular aftermarket wheel setups for this car (diameter, width, offset, tire width tw and aspect ar) with what each needs.${full ? `
 - setup: 10-12 rows for what's on the car now (Engine, Transmission, Suspension, Brakes, Wheels, Tires, Exhaust, Intake, Audio, Interior, Exterior). Stock unless the owner said otherwise.
@@ -256,20 +256,22 @@ Reply with only the JSON.`;
     { k: "w_bolt", l: "Bolt pattern", t: "text", ph: "4x100" }, { k: "w_centerBore", l: "Center bore", t: "text" }, { k: "w_lugThread", l: "Lug thread", t: "text" }, { k: "w_lugTorque", l: "Lug torque", t: "text" },
     { k: "st_dia", l: "Factory wheel diameter", t: "number", step: 1 }, { k: "st_width", l: "Factory wheel width", t: "number", step: 0.5 }, { k: "st_offset", l: "Factory offset", t: "number", step: 1 }, { k: "st_tire", l: "Factory tire", t: "text", ph: "195/55R15" },
     { k: "f_lipOut", l: "Fitment: lip out (mm)", t: "number", step: 1 }, { k: "f_innerLimit", l: "Fitment: inner limit (mm)", t: "number", step: 1 }, { k: "f_stockGap", l: "Fitment: stock gap (mm)", t: "number", step: 1 },
+    { k: "f_suspension", l: "Fitment: front suspension", t: "select", o: [{ v: "strut", l: "MacPherson strut" }, { v: "double_wishbone", l: "Double wishbone" }, { v: "multilink", l: "Multi-link" }] },
+    { k: "f_stockCamber", l: "Fitment: factory camber (°)", t: "number", step: 0.1 }, { k: "f_bump", l: "Fitment: bump travel (mm)", t: "number", step: 1 },
     { k: "notes", l: "Notes", t: "textarea" },
   ];
   NS.acts["spec-edit"] = () => {
     const v = NS.veh(); const sp = v.specs || {}; const o = sp.oil || {}, p = sp.plugs || {}, t = sp.timing || {}, w = sp.wheels || {}, st = w.stock || {}, f = sp.fitment || {};
     const value = { body: sp.body || "coupe", drivetrain: sp.drivetrain, transmission: sp.transmission, hp: sp.hp, torque: sp.torque, weightLb: sp.weightLb, oil_spec: o.spec, oil_capacity: o.capacity, oil_filter: o.filter, coolant: sp.coolant,
       plugs_part: p.part, plugs_gap: p.gap, plugs_torque: p.torque, timing_type: t.type || "belt", timing_interval: t.interval, timing_interference: t.interference || "unknown",
-      w_bolt: w.bolt, w_centerBore: w.centerBore, w_lugThread: w.lugThread, w_lugTorque: w.lugTorque, st_dia: st.dia, st_width: st.width, st_offset: st.offset, st_tire: st.tire, f_lipOut: f.lipOut, f_innerLimit: f.innerLimit, f_stockGap: f.stockGap, notes: sp.notes };
+      w_bolt: w.bolt, w_centerBore: w.centerBore, w_lugThread: w.lugThread, w_lugTorque: w.lugTorque, st_dia: st.dia, st_width: st.width, st_offset: st.offset, st_tire: st.tire, f_lipOut: f.lipOut, f_innerLimit: f.innerLimit, f_stockGap: f.stockGap, f_suspension: f.suspension || "strut", f_stockCamber: f.stockCamber ?? "", f_bump: f.bump || "", notes: sp.notes };
     NS.form({ eyebrow: "SPEC SHEET", title: NS.vehLabel(v), fields: SPEC_FIELDS, value,
       onSave: (x) => {
         v.specs = { ...sp, body: x.body, drivetrain: x.drivetrain, transmission: x.transmission, hp: x.hp, torque: x.torque, weightLb: x.weightLb, coolant: x.coolant, notes: x.notes,
           oil: { spec: x.oil_spec, capacity: x.oil_capacity, filter: x.oil_filter }, plugs: { part: x.plugs_part, gap: x.plugs_gap, torque: x.plugs_torque },
           timing: { type: x.timing_type, interval: x.timing_interval, interference: x.timing_interference },
           wheels: { bolt: x.w_bolt, centerBore: x.w_centerBore, lugThread: x.w_lugThread, lugTorque: x.w_lugTorque, stock: x.st_dia && x.st_tire ? { dia: x.st_dia, width: x.st_width, offset: x.st_offset, tire: x.st_tire } : undefined },
-          fitment: { lipOut: x.f_lipOut, innerLimit: x.f_innerLimit, stockGap: x.f_stockGap } };
+          fitment: { lipOut: x.f_lipOut, innerLimit: x.f_innerLimit, stockGap: x.f_stockGap, suspension: x.f_suspension, stockCamber: x.f_stockCamber, bump: x.f_bump } };
         if (!v.specs.wheels.stock) delete v.specs.wheels.stock;
         NS.ui.specOpen = true; NS.commitVeh(); NS.toast("Specs saved");
       } });

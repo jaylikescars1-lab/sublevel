@@ -42,15 +42,17 @@ window.NS_DATA = {
   /* Wheel fitment. Baseline is the EX coupe's factory corner. Distances in mm from the hub face. */
   fit: {
     stock: { dia: 14, width: 5.5, offset: 45, tw: 185, ar: 65 },
-    lipOut: 76,       // fender lip, outboard of hub face
-    innerLimit: 150,  // strut / coilover perch, inboard of hub face
+    lipOut: 74,       // fender lip outer skin, outboard of hub face
+    innerLimit: 161,  // nearest suspension part, inboard of hub face
     stockGap: 52,     // tire tread to fender lip at stock height
+    suspension: "double_wishbone", stockCamber: 0, bump: 75,  // EK front: ~0° factory camber, ~3 in of bump travel
+    // lipOut and innerLimit are calibrated so owner-reported EK setups come out right (see fit.js)
     presets: [
-      { n: "15x8 +15", dia: 15, width: 8, offset: 15, tw: 195, ar: 50, note: "Aggressive. Needs rolled fenders and camber." },
-      { n: "15x8 +28", dia: 15, width: 8, offset: 28, tw: 195, ar: 50, note: "The sweet spot for a lowered EK chassis." },
-      { n: "15x8 +35", dia: 15, width: 8, offset: 35, tw: 195, ar: 50, note: "Tucked and safe. Watch the inner clearance." },
-      { n: "16x9 +15", dia: 16, width: 9, offset: 15, tw: 215, ar: 45, note: "Show fitment. Expect to modify the car." },
-      { n: "16x9 +25", dia: 16, width: 9, offset: 25, tw: 205, ar: 45, note: "Wide and stretched. Inner clearance gets tight." },
+      { n: "15x7 +38", dia: 15, width: 7, offset: 38, tw: 205, ar: 50, drop: 1.5, fenders: "stock", note: "The common no-roll setup. Clears a stock lip at a 1.5 in drop." },
+      { n: "16x7 +40", dia: 16, width: 7, offset: 40, tw: 205, ar: 45, drop: 1, fenders: "stock", note: "Classic 16s. Fits at a mild drop with no fender work." },
+      { n: "15x8 +28", dia: 15, width: 8, offset: 28, tw: 195, ar: 50, drop: 1.5, fenders: "stock", note: "Mild stretch. Clears a stock lip by a hair, so roll the fenders to be safe." },
+      { n: "16x8 +22", dia: 16, width: 8, offset: 22, tw: 215, ar: 40, drop: 0, fenders: "stock", note: "Aggressive. Pokes at stock height and rubs at full bump." },
+      { n: "15x8 +15", dia: 15, width: 8, offset: 15, tw: 195, ar: 45, drop: 2.5, fenders: "rolled", note: "Stance. Needs pulled fenders and real camber." },
       { n: "Stock 14x5.5 +45", dia: 14, width: 5.5, offset: 45, tw: 185, ar: 65, note: "Factory EX setup." },
     ],
     tires: {

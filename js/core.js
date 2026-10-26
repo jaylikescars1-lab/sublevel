@@ -467,7 +467,11 @@
     const label = (x) => `${x.dia}x${x.width} ${x.offset >= 0 ? "+" : ""}${x.offset}`;
     const presets = (sp.fitPresets && sp.fitPresets.length ? sp.fitPresets.map((p) => ({ ...p, n: p.n || label(p) })) : builtin ? D.fit.presets.filter((p) => !/^Stock/.test(p.n)) : [])
       .concat([{ n: "Stock " + label(stock), ...stock, note: "Factory setup." }]);
-    return { stock, lipOut: +fit.lipOut || D.fit.lipOut, innerLimit: +fit.innerLimit || D.fit.innerLimit, stockGap: +fit.stockGap || D.fit.stockGap, presets, tires: D.fit.tires, own: !!st };
+    // Without a spec sheet, non-EK cars get generic numbers; EK/EJ/EM get the calibrated ones.
+    const susp = fit.suspension || (builtin || !st ? D.fit.suspension : "strut");
+    return { stock, lipOut: +fit.lipOut || D.fit.lipOut, innerLimit: +fit.innerLimit || D.fit.innerLimit, stockGap: +fit.stockGap || D.fit.stockGap,
+      suspension: susp, stockCamber: fit.stockCamber != null && fit.stockCamber !== "" ? +fit.stockCamber : builtin || !st ? D.fit.stockCamber : -0.5, bump: +fit.bump || D.fit.bump,
+      presets, tires: D.fit.tires, own: !!st };
   };
 
   /* Service schedule status: last done from tagged log entries, else a known record (receipts). */

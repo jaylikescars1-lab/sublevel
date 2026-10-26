@@ -6,117 +6,116 @@
   const { esc, money, num, icon, clamp } = NS;
 
   /* ================= FITMENT ================= */
+  /* The math lives in fit.js (NS.fit). This is the page: state, readouts, fixes, drawings. */
   const fitState = () => {
     if (!NS.ui.fit || NS.ui.fitFor !== NS.veh().id) {
       NS.ui.fitFor = NS.veh().id;
-      const w = NS.veh().wheel || {};
-      const t = NS.parseTire(w.tire) || { tw: 185, ar: 65 };
-      NS.ui.fit = { dia: w.dia || 14, width: w.width || 5.5, offset: w.offset ?? 45, tw: t.tw, ar: t.ar, drop: w.drop || 0 };
+      const w = NS.veh().wheel || {}, st = F.stock;
+      const t = NS.parseTire(w.tire) || { tw: st.tw, ar: st.ar };
+      NS.ui.fit = { dia: w.dia || st.dia, width: w.width || st.width, offset: w.offset ?? st.offset, tw: t.tw, ar: t.ar, drop: w.drop || 0,
+        camber: w.camber ?? null, spacer: w.spacer || 0, fenders: w.fenders || "stock" };
     }
     return NS.ui.fit;
   };
   NS.fitState = fitState;
+  const IN = 25.4, inch = (mm) => (mm / IN).toFixed(1);
+  const sgn = (n, d = 0) => (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(d);
 
   NS.fitCalc = function (s) {
-    const st = F.stock;
-    const rimW = s.width * 25.4;
-    const od = NS.tireOD(s.dia, s.tw, s.ar);
-    const stockOD = NS.tireOD(st.dia, st.tw, st.ar);
-    const half = Math.max(s.tw / 2, rimW / 2 + 6);           // widest point: tire sidewall or rim flange
-    const bulge = half - rimW / 2;
-    const inner = half + s.offset;                            // inboard extent from hub face
-    const outer = half - s.offset;                            // outboard extent from hub face
-    const camber = -(0.5 + s.drop * 0.75);                    // degrees, rough EK geometry
-    const tuck = (od / 2) * Math.sin(Math.abs(camber) * Math.PI / 180) - (stockOD / 2) * Math.sin(0.5 * Math.PI / 180);
-    const poke = outer - tuck - F.lipOut;                     // + = past the fender lip at the top of the tire
-    const innerClear = F.innerLimit - inner;
-    const rideChange = (od - stockOD) / 2 / 25.4 - s.drop;    // inches, body vs ground
-    const gap = F.stockGap + (stockOD - od) / 2 - s.drop * 25.4;
-    const speedo = (od / stockOD - 1) * 100;
-    const ratio = s.tw / 25.4 / s.width;                      // tire width ÷ rim width
-    const stretch = ratio < 0.98 ? "Stretched" : ratio > 1.22 ? "Meaty" : "Square";
-
-    let rPoke = poke > 0 ? clamp(45 + poke * 4, 0, 100) : poke > -8 ? (poke + 8) * 4 : 0;
-    if (gap < 25) rPoke = clamp(rPoke * (1 + (25 - gap) / 25), 0, 100);
-    const rInner = innerClear < 0 ? 100 : innerClear < 4 ? 70 - innerClear * 6 : innerClear < 10 ? 30 - (innerClear - 4) * 4 : 0;
-    const rGap = gap < 0 ? clamp(60 - gap, 0, 100) : gap < 15 ? (15 - gap) * 3 : 0;
-    const rStretch = ratio < 0.9 ? 20 : 0;
-    const risk = Math.round(100 * (1 - (1 - rPoke / 100) * (1 - rInner / 100) * (1 - rGap / 100) * (1 - rStretch / 100)));
-    const level = risk < 25 ? ["LOW", "ok", "Daily-able."] : risk < 55 ? ["MEDIUM", "warn", "Roll the fenders and it should live."] : risk < 80 ? ["HIGH", "bad", "It will rub. You know it will."] : ["GRINDING", "bad", "Fender work and camber, or pick another offset."];
+    const base = NS.fitBase(NS.veh());
+    const r = NS.fit.calc(base, s);
+    // Headline names the biggest problem; the colour comes from the overall risk.
+    const head = r.margin < 0 ? (r.rubAt === 0 ? "Rubs at ride height." : r.rubAt / r.travel > 0.75 ? "Rubs over big bumps." : "Rubs over bumps.")
+      : r.innerClear < 0 ? "Hits the strut." : r.innerClear < 5 ? "Too close to the strut." : r.margin < 5 ? "Clears, barely."
+      : r.fit === "stretched" ? "Fits, on a stretched tire." : r.poke > 3 ? "Fits, but sticks out." : r.linerHit ? "Fits. May touch the liner over big bumps." : "Clean fit. Daily-able.";
+    const level = [r.risk < 25 ? "LOW" : r.risk < 55 ? "MEDIUM" : r.risk < 80 ? "HIGH" : "GRINDING", r.risk < 25 ? "ok" : r.risk < 55 ? "warn" : "bad", head];
 
     const fixes = [];
-    if (poke > 0) fixes.push(`Pokes ${poke.toFixed(0)} mm past the lip. Roll the fenders, add camber, or go about ${Math.ceil(poke / 5) * 5} mm higher offset.`);
-    else if (poke > -6) fixes.push("Near flush. Rolled fenders recommended at this height.");
-    if (innerClear < 4) fixes.push(`Only ${Math.max(0, innerClear).toFixed(0)} mm to the strut. Lower the offset or run a narrower tire.`);
-    if (gap < 10) fixes.push("Tire top sits at or above the fender lip. Expect rub over bumps without more camber.");
-    if (Math.abs(speedo) > 3) fixes.push(`Speedo will read ${speedo > 0 ? "slow" : "fast"} by ${Math.abs(speedo).toFixed(1)}%.`);
+    if (r.margin < 0) {
+      const need = Math.ceil(-r.margin + 3);
+      const deg = r.worst && r.worst.Y > 0 ? need / (r.worst.Y * Math.sin(Math.PI / 180)) : 0;
+      const ways = [];
+      if (s.offset + need <= r.win.max) ways.push(`+${s.offset + need} offset or higher`);
+      if (deg > 0 && deg < 4) ways.push(`about ${deg.toFixed(1)}° more negative camber`);
+      if (s.fenders === "stock") ways.push(need <= 10 ? "rolled fenders (about 10 mm)" : "rolled and pulled fenders");
+      else if (s.fenders === "rolled") ways.push("pulled fenders (about 12 mm more)");
+      fixes.push((r.rubAt === 0 ? "Rubs the fender lip at ride height." : `Rubs the fender lip after ${inch(r.rubAt)} in of compression: big bumps, dips, a full car.`) + (ways.length ? " Fix: " + ways.join(", or ") + "." : ""));
+    } else if (r.margin < 5) fixes.push(`Clears the lip by only ${r.margin.toFixed(0)} mm at full bump. Tires vary a few mm by brand, so rolled fenders are cheap insurance.`);
+    if (r.innerClear < 5) fixes.push(r.innerClear < 0 ? `Hits the strut by ${(-r.innerClear).toFixed(0)} mm. Go at least ${Math.ceil(5 - r.innerClear)} mm lower offset (or a spacer that size), or a narrower tire.` : `Only ${r.innerClear.toFixed(0)} mm to the strut. A ${Math.ceil(5 - r.innerClear)} mm lower offset or a spacer that size gives safe room.`);
+    if (r.linerHit) fixes.push("Over big bumps the tread can reach the inner fender liner. Trim or heat the liner, or keep a little more ride height.");
+    if (r.fit === "stretched") fixes.push(`${s.tw} on a ${s.width}" rim is a stretch (this size is made for ${r.range[0]}–${r.range[1]}"). It tucks better, but the bead can unseat at low pressure or in a hard corner, and some shops won't mount it.`);
+    else if (r.fit === "pinched") fixes.push(`${s.width}" is narrower than this tire wants (${r.range[0]}–${r.range[1]}"). The sidewall bulges out and steering feels soft.`);
+    if (r.poke > 3) fixes.push(`Sticks out ${r.poke.toFixed(0)} mm past the fender at hub height. It throws water and grit on the paint, and some places ticket uncovered tires.`);
+    if (s.spacer >= 10) fixes.push(`A ${s.spacer} mm spacer needs bolt-on spacers or longer studs: keep at least 8 full turns of thread on every lug nut.`);
+    else if (s.spacer > 0) fixes.push(`Slip-on spacers eat thread. Make sure every lug nut still gets 8 full turns.`);
+    if (Math.abs(r.track) >= 16) fixes.push(r.track > 0 ? `Track is ${r.track.toFixed(0)} mm wider than stock: more grip and stance, but heavier steering and more kickback over bumps.` : `Track is ${(-r.track).toFixed(0)} mm narrower than stock.`);
+    if (r.lock) fixes.push("Bigger or further in than stock: turn to full lock both ways and check the frame rail and liner.");
+    if (Math.abs(r.speedo) > 3) fixes.push(`Speedo will read ${r.speedo > 0 ? "slow" : "fast"} by ${Math.abs(r.speedo).toFixed(1)}%.`);
     if (!fixes.length) fixes.push("Clean fit. No modifications needed.");
 
-    const tires = (F.tires[s.dia] || []).map((t) => {
-      const p = NS.parseTire(t); const o = NS.tireOD(p.dia, p.tw, p.ar);
-      const r = p.tw / 25.4 / s.width;
-      return { t, od: o, diff: (o / stockOD - 1) * 100, fit: r < 0.98 ? "stretch" : r > 1.22 ? "meaty" : "square", ok: r >= 0.86 && r <= 1.35, p };
-    }).filter((x) => x.ok).sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff)).slice(0, 4);
+    const tires = (F.tires[s.dia] || []).map((ts) => {
+      const p = NS.parseTire(ts); const x = NS.fit.calc(base, { ...s, tw: p.tw, ar: p.ar });
+      return { t: ts, p, diff: x.speedo, risk: x.risk, fit: x.fit, tag: x.risk < 25 ? "FITS" : x.risk < 55 ? "TIGHT" : "RUBS" };
+    }).filter((x) => Math.abs(x.diff) <= 4 && x.fit !== "pinched").sort((a, b) => a.risk - b.risk || Math.abs(a.diff) - Math.abs(b.diff)).slice(0, 4);
 
-    return { od, stockOD, inner, outer, poke, innerClear, rideChange, gap, speedo, camber, risk, level, fixes, tires, stretch, bulge, rimW };
+    return { ...r, level, fixes, tires, rideChange: r.ride / IN };
   };
 
+  /* Cross-section of the top of the wheel, looking from the front. Outside of the car is to the right.
+     Solid fender = at rest; dashed = at full bump. Fixed scale per car, so the sliders move the parts, not the frame. */
   function frontView(s, r) {
-    /* Section through the top of the tire, looking from the front. 1 mm = 1.1 px. Car's outside is to the right. */
-    const k = 1.1, X0 = 230, TOP = 150;
-    const x = (mm) => X0 + mm * k;
-    const camberShift = -(r.od / 2) * Math.sin(Math.abs(r.camber) * Math.PI / 180) * k;
-    const centerMm = -s.offset;                    // tire centerline vs hub face (+ outward)
-    const side = s.tw * s.ar / 100;
-    const tl = x(centerMm - s.tw / 2) + camberShift, tr = x(centerMm + s.tw / 2) + camberShift;
-    const rimL = x(centerMm - r.rimW / 2), rimR = x(centerMm + r.rimW / 2);
-    const rimY = TOP + side * k;
-    const lipX = x(F.lipOut), lipY = TOP - r.gap * k;
-    const strutX = x(-F.innerLimit);
-    const ok = r.level[1];
-    const col = ok === "ok" ? "#6fd3a0" : ok === "warn" ? "#e9b64e" : "#f0566e";
-    return `<svg viewBox="0 0 440 330" role="img" aria-label="Front section view of tire, wheel and fender">
-      <defs>
-        <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#2c2838" stroke-width="2"/></pattern>
-        <linearGradient id="tread" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#26242e"/><stop offset="1" stop-color="#0d0c11"/></linearGradient>
-        <linearGradient id="rimg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#bdbcc8"/><stop offset=".5" stop-color="#f4f4f8"/><stop offset="1" stop-color="#8d8b9a"/></linearGradient>
-      </defs>
-      <g font-family="JetBrains Mono, monospace" font-size="10" fill="#716c84" letter-spacing=".5">
-        <line x1="${X0}" y1="20" x2="${X0}" y2="320" stroke="#a98cff" stroke-opacity=".5" stroke-dasharray="3 4"/>
-        <text x="${X0 + 4}" y="316">HUB FACE</text>
-        <rect x="${strutX - 26}" y="10" width="26" height="${rimY - 10}" fill="url(#hatch)" stroke="#48445a"/>
-        <text x="${strutX - 13}" y="${rimY + 14}" text-anchor="middle">STRUT</text>
-        <path d="M${strutX} ${lipY - 46} L${lipX - 12} ${lipY - 46} C${lipX + 4} ${lipY - 46} ${lipX + 8} ${lipY - 38} ${lipX + 8} ${lipY - 22} L${lipX + 8} ${lipY - 2} C${lipX + 8} ${lipY + 3} ${lipX + 2} ${lipY + 4} ${lipX - 2} ${lipY}" fill="none" stroke="#d6d5de" stroke-width="2.4"/>
-        <path d="M${lipX + 8} ${lipY - 22} L430 ${lipY - 30}" stroke="#d6d5de" stroke-width="2.4" fill="none"/>
-        <text x="${lipX + 14}" y="${lipY - 36}">FENDER</text>
-        <line x1="${lipX}" y1="${lipY}" x2="${lipX}" y2="${rimY + 8}" stroke="#d6d5de" stroke-opacity=".35" stroke-dasharray="2 3"/>
-        <path d="M${tl + 8} ${TOP} L${tr - 8} ${TOP} Q${tr} ${TOP} ${tr} ${TOP + 10} C${tr} ${TOP + side * k * 0.5} ${rimR} ${rimY - 14} ${rimR} ${rimY} L${rimL} ${rimY} C${rimL} ${rimY - 14} ${tl} ${TOP + side * k * 0.5} ${tl} ${TOP + 10} Q${tl} ${TOP} ${tl + 8} ${TOP} Z" fill="url(#tread)" stroke="#3a3747" stroke-width="1.2"/>
-        ${Array.from({ length: Math.max(3, Math.floor(s.tw / 40)) }, (_, i) => { const n = Math.max(3, Math.floor(s.tw / 40)); const xx = tl + 10 + (i + 0.5) * ((tr - tl - 20) / n); return `<line x1="${xx}" y1="${TOP + 1}" x2="${xx}" y2="${TOP + 9}" stroke="#05050a" stroke-width="3"/>`; }).join("")}
-        <rect x="${rimL - 3}" y="${rimY - 6}" width="${rimR - rimL + 6}" height="8" rx="3" fill="url(#rimg)"/>
-        <rect x="${rimL}" y="${rimY + 2}" width="${rimR - rimL}" height="${320 - rimY}" fill="#121119" stroke="#5c5a68"/>
-        <line x1="${X0}" y1="${rimY + 2}" x2="${X0}" y2="320" stroke="#a98cff" stroke-width="3" stroke-opacity=".7"/>
-        <text x="${(rimL + rimR) / 2}" y="${rimY + 40}" text-anchor="middle" fill="#aaa6b8">${s.dia}x${s.width} ${s.offset >= 0 ? "+" : ""}${s.offset}</text>
-        <text x="${(tl + tr) / 2}" y="${TOP + side * k / 2 + 4}" text-anchor="middle" fill="#aaa6b8">${s.tw}/${s.ar}</text>
-        <g stroke="${r.innerClear < 4 ? "#f0566e" : "#6fd3a0"}" fill="${r.innerClear < 4 ? "#f0566e" : "#6fd3a0"}">
-          <line x1="${strutX}" y1="${rimY - 30}" x2="${Math.min(tl, rimL)}" y2="${rimY - 30}" stroke-width="1"/>
-          <text x="${(strutX + Math.min(tl, rimL)) / 2}" y="${rimY - 36}" text-anchor="middle" stroke="none">${r.innerClear.toFixed(0)}mm</text>
-        </g>
-        <g stroke="${col}" fill="${col}">
-          <line x1="${lipX}" y1="${TOP - 12}" x2="${tr}" y2="${TOP - 12}" stroke-width="1.4"/>
-          <circle cx="${tr}" cy="${TOP - 12}" r="2.2" stroke="none"/>
-          <text x="${Math.max(lipX, tr) + 6}" y="${TOP - 16}" stroke="none">${r.poke > 0 ? "+" : ""}${r.poke.toFixed(0)}mm</text>
-        </g>
-        <text x="12" y="22" fill="#a98cff" font-family="Silkscreen, monospace" font-size="9">FRONT SECTION · CAMBER ${r.camber.toFixed(1)}°</text>
+    const W = 440, Hh = 330, C = r.C, w = r.w, t = r.t;
+    const xMin = -C.innerLimit - 46, xMax = C.lipOut + 80;
+    const stockH0 = r.ts.OD / 2 + C.stockGap, yMin = stockH0 - 230, yMax = stockH0 + 46;
+    const k = Math.min(W / (xMax - xMin), Hh / (yMax - yMin));
+    const X = (x) => ((x - xMin) * k).toFixed(1), Y = (y) => (Hh - (y - yMin) * k).toFixed(1);
+    const tl = (r.tilt0 * Math.PI) / 180, cs = Math.cos(tl), sn = Math.sin(tl), xc = -r.off;
+    const P = (u, v) => [xc + u * cs - v * sn, u * sn + v * cs];
+    const pts = (arr) => arr.map(([u, v]) => { const [x, y] = P(u, v); return X(x) + "," + Y(y); }).join(" ");
+    const prof = []; for (let rr = w.Rf; rr <= t.OD / 2; rr += 3) prof.push(rr); prof.push(t.OD / 2);
+    const tireP = pts([...prof.map((rr) => [NS.fit.halfWidth(t, w, rr), rr]), ...prof.slice().reverse().map((rr) => [-NS.fit.halfWidth(t, w, rr), rr])]);
+    const rimP = pts([[-w.Wo / 2, w.R - 60], [-w.Wo / 2, w.Rf], [-w.Wo / 2 + 9, w.Rf], [-w.Wo / 2 + 9, w.R], [w.Wo / 2 - 9, w.R], [w.Wo / 2 - 9, w.Rf], [w.Wo / 2, w.Rf], [w.Wo / 2, w.R - 60]]);
+    const fender = (dy) => {
+      const H = r.H0 - dy, lx = r.lipX, fold = s.fenders === "stock" ? `L${X(r.lipEff)} ${Y(H + 3)}` : s.fenders === "rolled" ? `Q${X(lx - 4)} ${Y(H - 2)} ${X(lx - 6)} ${Y(H + 4)}` : "";
+      return `M${X(-C.innerLimit + 6)} ${Y(H + 40)} L${X(lx - 22)} ${Y(H + 40)} Q${X(lx)} ${Y(H + 40)} ${X(lx)} ${Y(H + 14)} L${X(lx)} ${Y(H)} ${fold} M${X(lx)} ${Y(H + 14)} Q${X(lx + 4)} ${Y(H + 40)} ${X(xMax)} ${Y(H + 44)}`;
+    };
+    const rub = r.margin < 0, col = rub ? "#f0566e" : r.margin < 5 ? "#e9b64e" : "#6fd3a0";
+    const icol = r.innerClear < 0 ? "#f0566e" : r.innerClear < 5 ? "#e9b64e" : "#6fd3a0";
+    let inY = w.Rf, inX = 0;
+    for (let rr = w.R; rr <= t.OD / 2; rr += 2) { const [x, y] = P(-NS.fit.halfWidth(t, w, rr), rr); if (-x > inX) { inX = -x; inY = y; } }
+    // The contact can be part-way round the arch; draw it on this section at the same distance from the hub.
+    const mark = rub && r.worst ? `<circle cx="${X(r.worst.X)}" cy="${Y(r.worst.r)}" r="5" fill="none" stroke="#f0566e" stroke-width="2"/>` : "";
+    return `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Front section: tire, wheel, strut and fender lip at rest and at full bump">
+      <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#2c2838" stroke-width="2"/></pattern>
+        <linearGradient id="tread" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2832"/><stop offset="1" stop-color="#0d0c11"/></linearGradient>
+        <linearGradient id="rimg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8d8b9a"/><stop offset=".5" stop-color="#e9e8ef"/><stop offset="1" stop-color="#8d8b9a"/></linearGradient></defs>
+      <g font-family="JetBrains Mono, monospace" font-size="10" fill="#716c84">
+        <line x1="${X(0)}" y1="${Y(yMax)}" x2="${X(0)}" y2="${Hh}" stroke="#a98cff" stroke-opacity=".45" stroke-dasharray="3 4"/>
+        <text x="${+X(0) + 4}" y="${Hh - 6}">HUB FACE</text>
+        <rect x="${X(-C.innerLimit - 24)}" y="${Y(yMax - 18)}" width="${(24 * k).toFixed(1)}" height="${(+Y(yMin + 20) - +Y(yMax - 18)).toFixed(1)}" fill="url(#hatch)" stroke="#48445a"/>
+        <text x="${X(-C.innerLimit - 12)}" y="${Hh - 6}" text-anchor="middle">STRUT</text>
+        <polygon points="${rimP}" fill="url(#rimg)" opacity=".85"/>
+        <polygon points="${tireP}" fill="url(#tread)" stroke="#3a3747" stroke-width="1.2"/>
+        <path d="${fender(0)}" fill="none" stroke="#d6d5de" stroke-width="2.4"/>
+        <path d="${fender(r.travel)}" fill="none" stroke="${col}" stroke-width="1.6" stroke-dasharray="5 4" opacity=".9"/>
+        <text x="${W - 4}" y="${+Y(r.H0 - r.travel + 44) - 6}" text-anchor="end" fill="${col}">FULL BUMP ${inch(r.travel)}"</text>
+        ${mark}
+        <g stroke="${icol}" fill="${icol}"><line x1="${X(-C.innerLimit)}" y1="${Y(inY)}" x2="${X(-inX)}" y2="${Y(inY)}" stroke-width="1"/>
+          <text x="${((+X(-C.innerLimit) + +X(-inX)) / 2).toFixed(1)}" y="${+Y(inY) - 6}" text-anchor="middle" stroke="none">${r.innerClear.toFixed(0)}mm</text></g>
+        <text x="${(+X(xc)).toFixed(1)}" y="${(+Y(w.R - 30)).toFixed(1)}" text-anchor="middle" fill="#aaa6b8">${s.dia}x${s.width} ${sgn(s.offset)}${s.spacer ? " +" + s.spacer + "mm spacer" : ""}</text>
+        <text x="12" y="20" fill="#a98cff" font-family="Silkscreen, monospace" font-size="9">FRONT SECTION · CAMBER ${r.camber.toFixed(1)}°</text>
+        <text x="12" y="34" font-size="9.5">${rub ? `<tspan fill="#f0566e">RUBS ${r.rubAt === 0 ? "AT REST" : "AT " + inch(r.rubAt) + "\" BUMP"}</tspan>` : r.margin === 99 ? "LIP NEVER REACHES THE TIRE" : `CLEARS BY ${r.margin.toFixed(0)}MM AT FULL BUMP`}</text>
       </g>
     </svg>`;
   }
 
   NS.views.fitment = function () {
     const s = fitState();
-    const ctrl = (k, l, min, max, step, fmt) => `<div class="ctrl"><label class="lbl" for="fit-${k}">${l}</label><output id="fit-${k}-o">${fmt(s[k])}</output><input type="range" id="fit-${k}" data-in="fit" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${s[k]}"></div>`;
-    const presetActive = (p) => p.dia === s.dia && p.width === s.width && p.offset === s.offset;
+    const ctrl = (k, l, min, max, step, fmt, val = s[k]) => `<div class="ctrl"><label class="lbl" for="fit-${k}">${l}</label><output id="fit-${k}-o">${fmt(val)}</output><input type="range" id="fit-${k}" data-in="fit" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;
+    const presetActive = (p) => p.dia === s.dia && p.width === s.width && p.offset === s.offset && p.tw === s.tw;
+    const r = NS.fitCalc(s); const v = NS.veh(); const wh = (v.specs && v.specs.wheels) || {};
     return `${NS.subnav()}
-    <div class="page-head"><div><div class="eyebrow">WHEEL FITMENT LAB · ${esc(NS.veh().chassis)}</div><h1 class="h1" style="margin-top:6px">Will it fit, and will it rub?</h1><p class="lede">Compared to the factory ${F.stock.dia}x${F.stock.width} ${F.stock.offset >= 0 ? "+" : ""}${F.stock.offset} with ${F.stock.tw}/${F.stock.ar}R${F.stock.dia}${F.own ? " from this car's spec sheet" : ""}. Estimates for planning. Test-fit before you buy.</p></div></div>
+    <div class="page-head"><div><div class="eyebrow">WHEEL FITMENT LAB · ${esc(v.chassis)}</div><h1 class="h1" style="margin-top:6px">Will it fit, and will it rub?</h1><p class="lede">Compared to the factory ${F.stock.dia}x${F.stock.width} ${sgn(F.stock.offset)} with ${F.stock.tw}/${F.stock.ar}R${F.stock.dia}${F.own ? " from this car's spec sheet" : ""}. It checks the strut, the fender at rest and all the way to the bump stop.</p></div></div>
     <div class="chips" style="margin-bottom:14px">${F.presets.map((p, i) => `<button class="chip" data-act="fit-preset" data-i="${i}" aria-pressed="${presetActive(p)}">${esc(p.n)}</button>`).join("")}</div>
     <div class="lab">
       <div class="stack">
@@ -127,17 +126,36 @@
         <div class="risk" id="fit-risk"></div>
         <div class="readouts" id="fit-readouts"></div>
         <div class="panel tight stack" style="gap:16px">
-          ${ctrl("dia", "Wheel diameter", 13, 20, 1, (v) => v + '"')}
-          ${ctrl("width", "Wheel width", 5, 11, 0.5, (v) => v + '"')}
-          ${ctrl("offset", "Offset", -25, 60, 1, (v) => (v >= 0 ? "+" : "") + v)}
-          ${ctrl("tw", "Tire width", 165, 305, 5, (v) => v + "mm")}
-          ${ctrl("ar", "Tire aspect", 30, 75, 5, (v) => v)}
-          ${ctrl("drop", "Suspension drop", 0, 4, 0.25, (v) => (v ? "−" + v : "0") + " in")}
+          ${ctrl("dia", "Wheel diameter", 13, 20, 1, (x) => x + '"')}
+          ${ctrl("width", "Wheel width", 5, 11, 0.5, (x) => x + '"')}
+          ${ctrl("offset", "Offset", -25, 60, 1, (x) => sgn(x))}
+          ${ctrl("tw", "Tire width", 165, 305, 5, (x) => x + "mm")}
+          ${ctrl("ar", "Tire aspect", 30, 75, 5, (x) => x)}
+          ${ctrl("drop", "Suspension drop", 0, 4, 0.25, (x) => (+x ? "−" + x : "0") + " in")}
+          <details class="more"${NS.ui.fitMore ? " open" : ""} id="fit-more"><summary class="lbl">Camber, spacers, fenders</summary>
+            <div class="stack" style="gap:16px;margin-top:12px">
+              ${ctrl("camber", "Front camber", -5, 1, 0.25, (x) => (+x).toFixed(2) + "°" + (s.camber == null ? " · auto" : ""), s.camber == null ? +r.autoCamber.toFixed(2) : s.camber)}
+              <p class="dim" id="fit-camber-note" style="font-size:13px;margin:-8px 0 0"${s.camber == null ? "" : " hidden"}>Estimated from the drop. Move it if you know your alignment.</p>
+              <button class="btn sm ghost" id="fit-camber-auto" data-act="fit-camber-auto" style="margin-top:-8px;justify-self:start"${s.camber == null ? " hidden" : ""}>Back to auto</button>
+              ${ctrl("spacer", "Wheel spacer", 0, 25, 1, (x) => x + " mm")}
+              <div><span class="lbl">Fender lips</span><div class="seg" style="margin-top:6px">${[["stock", "Stock"], ["rolled", "Rolled"], ["pulled", "Pulled"]].map(([k2, l]) => `<button type="button" data-act="fit-fenders" data-v="${k2}" aria-pressed="${s.fenders === k2}">${l}</button>`).join("")}</div></div>
+            </div></details>
         </div>
         <div class="infobox" id="fit-fixes"></div>
-        <div class="panel tight"><div class="lbl" style="margin-bottom:8px">Recommended tire sizes</div><div id="fit-tires" class="stack" style="gap:6px"></div></div>
+        <div class="panel tight"><div class="lbl" style="margin-bottom:8px">Tire sizes for this wheel</div><div id="fit-tires" class="stack" style="gap:6px"></div></div>
         <button class="btn" data-act="fit-save">${icon("check")}Save as my planned wheel setup</button>
         <button class="btn" data-act="shop-fit">${icon("cart")}Shop this setup</button>
+        <details class="spec-sheet"><summary><div><div class="eyebrow">HOW THIS IS CALCULATED</div><div class="spec-line">The math, and what to check before you buy</div></div>${icon("chev")}</summary>
+          <ul class="clean-list" style="margin-top:12px;font-size:13.5px">
+            <li><b>Tire width on your rim.</b> A tire's listed width is on its measuring rim. Every 1 mm of extra rim adds about 0.4 mm of section width (ETRTO, Tire Rack's 0.2"-per-0.5" rule). Real tires vary a few mm by brand.</li>
+            <li><b>Wheel width.</b> A wheel is about 1" wider overall than its stated width, because of the flanges.</li>
+            <li><b>Camber.</b> Negative camber pulls the top of the tire in by height × sin(angle), about 5 mm per degree at the top. It's estimated from the drop (${NS.fit.car(NS.fitBase(v)).gain}° per inch on this ${NS.fitBase(v).suspension.replace("_", " ")} front end) unless you set it.</li>
+            <li><b>Rubbing.</b> The fender lip is moved down through the suspension's travel to the bump stop, with camber changing as it goes, and checked against the tire's real cross-section. A stock lip folds inward about 10 mm. Rolling removes that fold; pulling moves the lip out about 12 mm.</li>
+            <li><b>Strut.</b> The widest inner part of the tire's upper half, with camber, against the nearest suspension part.</li>
+            <li><b>Before you buy:</b> bolt pattern ${esc(wh.bolt || "matches your hubs")}; hub bore ${esc(wh.centerBore || "same or bigger than your hub")} (bigger needs hub-centric rings); lug nuts with the seat the wheel maker specifies (usually 60° conical); load index at least as high as stock; and that the spokes clear your brake calipers.</li>
+          </ul>
+          <p class="dim" style="font-size:12.5px;margin:10px 0 0">Planning numbers, checked against owner-reported setups. Test-fit one wheel at full lock and with weight on the car before you buy a set.</p>
+        </details>
       </div>
     </div>`;
   };
@@ -146,39 +164,48 @@
     const s = fitState(); const r = NS.fitCalc(s);
     const v = NS.veh();
     NS.$("#fit-side").innerHTML = NS.carSVG({ id: "fit", dia: s.dia, od: r.od, drop: s.drop, paint: v.paintHex, reflection: false, labels: true, alt: "Side view with this wheel setup" }) +
-      `<div class="viz-cap"><span>SIDE · ${s.dia}x${s.width} ${s.offset >= 0 ? "+" : ""}${s.offset} · ${s.tw}/${s.ar}R${s.dia}</span><span>RIDE ${r.rideChange >= 0 ? "+" : "−"}${Math.abs(r.rideChange).toFixed(2)} IN</span></div>`;
-    NS.$("#fit-front").innerHTML = frontView(s, r) + `<div class="viz-cap"><span>FENDER LIP ${F.lipOut}MM OUT · STRUT ${F.innerLimit}MM IN</span><span>${r.stretch.toUpperCase()} · OD ${r.od.toFixed(0)}MM</span></div>`;
+      `<div class="viz-cap"><span>SIDE · ${s.dia}x${s.width} ${sgn(s.offset)} · ${s.tw}/${s.ar}R${s.dia}</span><span>RIDE ${sgn(r.rideChange, 2)} IN</span></div>`;
+    NS.$("#fit-front").innerHTML = frontView(s, r) + `<div class="viz-cap"><span>LIP ${r.lipX.toFixed(0)}MM OUT · STRUT ${r.C.innerLimit}MM IN · TRAVEL ${inch(r.travel)}"</span><span>${r.fit.toUpperCase()} · OD ${r.od.toFixed(0)}MM</span></div>`;
     const lv = r.level;
     const col = lv[1] === "ok" ? "#6fd3a0" : lv[1] === "warn" ? "#e9b64e" : "#f0566e";
     const a = (r.risk / 100) * 270;
     const arc = (deg) => { const t = ((deg - 225) * Math.PI) / 180; return [37 + 30 * Math.cos(t), 37 + 30 * Math.sin(t)]; };
     const [sx, sy] = arc(0), [ex, ey] = arc(Math.max(0.1, a)), [fx, fy] = arc(270);
     NS.$("#fit-risk").innerHTML = `<svg class="gauge" viewBox="0 0 74 74" aria-hidden="true"><path d="M${sx} ${sy} A30 30 0 1 1 ${fx} ${fy}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="6" stroke-linecap="round"/><path d="M${sx} ${sy} A30 30 0 ${a > 180 ? 1 : 0} 1 ${ex} ${ey}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round"/><text x="37" y="42" text-anchor="middle" font-family="Barlow Semi Condensed, sans-serif" font-weight="600" font-size="17" fill="${col}">${r.risk}</text></svg>
-      <div style="min-width:0"><div class="lbl">Rubbing risk</div><div class="big ${lv[1]}" style="font-size:28px;margin-top:4px">${lv[0]}</div><div class="muted" style="font-size:14px;margin-top:2px">${lv[2]}</div></div>`;
-    const ro = (k, v, s2, cls = "") => `<div class="readout"><div class="k">${k}</div><div class="v ${cls}">${v}</div><div class="s">${s2}</div></div>`;
+      <div style="min-width:0"><div class="lbl">Fitment risk</div><div class="big ${lv[1]}" style="font-size:28px;margin-top:4px">${lv[0]}</div><div class="muted" style="font-size:14px;margin-top:2px">${lv[2]}</div></div>`;
+    const mm = '<span class="dim" style="font-size:14px"> mm</span>';
+    const ro = (k, val, sub, cls = "") => `<div class="readout"><div class="k">${k}</div><div class="v ${cls}">${val}</div><div class="s">${sub}</div></div>`;
+    const inWin = s.offset >= r.win.min && s.offset <= r.win.max;
     NS.$("#fit-readouts").innerHTML =
-      ro("INNER CLEARANCE", r.innerClear.toFixed(0) + '<span class="dim" style="font-size:14px"> mm</span>', "to strut / perch", r.innerClear < 4 ? "bad" : r.innerClear < 10 ? "warn" : "ok") +
-      ro("FENDER POKE", (r.poke > 0 ? "+" : "") + r.poke.toFixed(0) + '<span class="dim" style="font-size:14px"> mm</span>', r.poke > 0 ? "past the lip" : "tucked behind the lip", r.poke > 0 ? "bad" : r.poke > -6 ? "warn" : "") +
-      ro("RIDE HEIGHT", (r.rideChange >= 0 ? "+" : "−") + Math.abs(r.rideChange).toFixed(2) + '<span class="dim" style="font-size:14px"> in</span>', "vs. stock, approx.") +
-      ro("FENDER GAP", Math.max(0, r.gap / 25.4).toFixed(2) + '<span class="dim" style="font-size:14px"> in</span>', r.gap < 0 ? "tire above lip (tuck)" : "tire to lip, front") +
-      ro("DIAMETER", (r.speedo >= 0 ? "+" : "") + r.speedo.toFixed(1) + '<span class="dim" style="font-size:14px"> %</span>', "speedo error vs. stock", Math.abs(r.speedo) > 3 ? "warn" : "") +
-      ro("SIDEWALL", r.stretch.toUpperCase(), `${s.tw}mm tire on ${s.width}" rim`, r.stretch === "Stretched" ? "warn" : "");
+      ro("INNER CLEARANCE", r.innerClear.toFixed(0) + mm, "to strut / suspension", r.innerClear < 0 ? "bad" : r.innerClear < 5 ? "warn" : "ok") +
+      ro("FENDER POKE", sgn(r.poke) + mm, r.poke > 3 ? "sticks out past the lip" : r.poke > -5 ? "flush with the lip" : "tucked inside the lip", r.poke > 3 ? "bad" : r.poke > -5 ? "warn" : "") +
+      ro("RUB CHECK", r.margin < 0 ? (r.rubAt === 0 ? "RUBS" : `RUBS @${inch(r.rubAt)}"`) : r.margin === 99 ? "CLEAR" : "+" + r.margin.toFixed(0) + mm, r.margin < 0 ? "lip meets the tire" : `through ${inch(r.travel)}" of bump`, r.margin < 0 ? "bad" : r.margin < 5 ? "warn" : "ok") +
+      ro("OFFSET WINDOW", r.win.min > r.win.max ? "NONE" : `${sgn(r.win.min)}…${sgn(r.win.max)}`, r.win.min > r.win.max ? "no offset fits this setup" : "offsets that fit this setup", inWin ? "ok" : "warn") +
+      ro("RIDE HEIGHT", sgn(r.rideChange, 2) + '<span class="dim" style="font-size:14px"> in</span>', "vs. stock, approx.") +
+      ro("DIAMETER", sgn(r.speedo, 1) + '<span class="dim" style="font-size:14px"> %</span>', "speedo error vs. stock", Math.abs(r.speedo) > 3 ? "warn" : "") +
+      ro("SIDEWALL", r.fit.toUpperCase(), `made for ${r.range[0]}–${r.range[1]}" rims`, r.fit === "in range" ? "" : "warn") +
+      ro("CAMBER", r.camber.toFixed(1) + '<span class="dim" style="font-size:14px">°</span>', s.camber == null ? "estimated from the drop" : "your setting");
     NS.$("#fit-fixes").innerHTML = `<h4>WHAT IT NEEDS</h4><ul>${r.fixes.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>`;
-    NS.$("#fit-tires").innerHTML = r.tires.length ? r.tires.map((t) => `<button class="row between card hover" style="padding:9px 12px" data-act="fit-tire" data-t="${t.t}"><span class="mono">${t.t}</span><span class="row" style="gap:8px"><span class="tag ${t.fit === "square" ? "ok" : "warn"}">${t.fit.toUpperCase()}</span><span class="mono dim" style="font-size:12px">${t.diff >= 0 ? "+" : ""}${t.diff.toFixed(1)}%</span></span></button>`).join("")
-      : '<span class="dim" style="font-size:14px">No common sizes for this width. Try a different width or diameter.</span>';
+    NS.$("#fit-tires").innerHTML = r.tires.length ? r.tires.map((x) => `<button class="row between card hover" style="padding:9px 12px" data-act="fit-tire" data-t="${x.t}"><span class="mono">${x.t}</span><span class="row" style="gap:8px"><span class="tag ${x.tag === "FITS" ? "ok" : x.tag === "TIGHT" ? "warn" : "bad"}">${x.tag}${x.fit === "stretched" ? " · STRETCH" : ""}</span><span class="mono dim" style="font-size:12px">${sgn(x.diff, 1)}%</span></span></button>`).join("")
+      : '<span class="dim" style="font-size:14px">No common sizes for this wheel. Try a different width or diameter.</span>';
   }
+  const FMT = { dia: (x) => x + '"', width: (x) => x + '"', offset: (x) => sgn(x), tw: (x) => x + "mm", ar: (x) => x, drop: (x) => (x ? "−" + x : "0") + " in", spacer: (x) => x + " mm", camber: (x) => x.toFixed(2) + "°" };
   NS.inputs.fit = (el) => {
-    const s = fitState(); s[el.dataset.k] = Number(el.value);
-    const fmt = { dia: (v) => v + '"', width: (v) => v + '"', offset: (v) => (v >= 0 ? "+" : "") + v, tw: (v) => v + "mm", ar: (v) => v, drop: (v) => (v ? "−" + v : "0") + " in" }[el.dataset.k];
-    NS.$("#fit-" + el.dataset.k + "-o").textContent = fmt(s[el.dataset.k]);
-    NS.$$("[data-act=fit-preset]").forEach((b) => { const p = F.presets[+b.dataset.i]; b.setAttribute("aria-pressed", p.dia === s.dia && p.width === s.width && p.offset === s.offset); });
+    const s = fitState(), k = el.dataset.k; s[k] = Number(el.value);
+    const out = NS.$("#fit-" + k + "-o"); if (out) out.textContent = FMT[k](s[k]);
+    NS.$$("[data-act=fit-preset]").forEach((b) => { const p = F.presets[+b.dataset.i]; b.setAttribute("aria-pressed", p.dia === s.dia && p.width === s.width && p.offset === s.offset && p.tw === s.tw); });
+    if (k === "camber") { const n = NS.$("#fit-camber-note"), b = NS.$("#fit-camber-auto"); if (n) n.hidden = true; if (b) b.hidden = false; }
     cancelAnimationFrame(NS._fitRaf); NS._fitRaf = requestAnimationFrame(drawFit);
   };
+  document.addEventListener("toggle", (e) => { if (e.target && e.target.id === "fit-more") NS.ui.fitMore = e.target.open; }, true);
+  NS.acts["fit-camber-auto"] = () => { fitState().camber = null; NS.render({ quiet: true }); };
+  NS.acts["fit-fenders"] = (el) => { fitState().fenders = el.dataset.v; NS.render({ quiet: true }); };
   NS.acts["fit-preset"] = (el) => {
     const p = F.presets[+el.dataset.i]; const s = fitState();
-    Object.assign(s, { dia: p.dia, width: p.width, offset: p.offset, tw: p.tw, ar: p.ar });
-    if (p.dia > 14 && s.drop === 0) s.drop = 2;
-    if (p.dia === 14) s.drop = 0;
+    Object.assign(s, { dia: p.dia, width: p.width, offset: p.offset, tw: p.tw, ar: p.ar, spacer: 0 });
+    if (p.drop != null) s.drop = p.drop; else if (p.dia > F.stock.dia && s.drop === 0) s.drop = 1.5;
+    if (/^Stock/.test(p.n)) { s.drop = 0; s.fenders = "stock"; s.camber = null; }
+    if (p.fenders) s.fenders = p.fenders;
     NS.render({ quiet: true }); NS.toast(p.note);
   };
   NS.acts["fit-tire"] = (el) => {
@@ -187,9 +214,9 @@
   NS.acts["fit-save"] = () => {
     const s = fitState(); const v = NS.veh();
     const tire = `${s.tw}/${s.ar}R${s.dia}`;
-    v.wheel = { dia: s.dia, width: s.width, offset: s.offset, tire, drop: s.drop };
+    v.wheel = { dia: s.dia, width: s.width, offset: s.offset, tire, drop: s.drop, camber: s.camber, spacer: s.spacer, fenders: s.fenders };
     const m = v.mods.find((x) => x.system === "WHEELS" && /wheel/i.test(x.title) && x.status !== "done");
-    if (m) { m.title = `Wheels: ${s.dia}x${s.width} ${s.offset >= 0 ? "+" : ""}${s.offset}`; m.notes = `Plan on ${tire}. ` + (NS.fitCalc(s).fixes[0] || ""); }
+    if (m) { m.title = `Wheels: ${s.dia}x${s.width} ${sgn(s.offset)}`; m.notes = `Plan on ${tire}. ` + (NS.fitCalc(s).fixes[0] || ""); }
     NS.commitVeh({ silent: true }); NS.toast("Saved. The garage drawing now shows this setup.");
   };
 
