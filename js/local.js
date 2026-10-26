@@ -29,42 +29,67 @@
     img.onerror = () => res(file); img.src = URL.createObjectURL(file);
   });
   const parseLoose = (t) => { try { return JSON.parse(t); } catch (e) {} const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if (f) return JSON.parse(f[1]); const i = t.search(/[[{]/), j = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]")); return JSON.parse(t.slice(i, j + 1)); };
+  /* Turn an SDK error into one of SUBLEVEL's codes, keeping the raw details so Settings → Test can show them. */
   const mapErr = (e) => {
     const A = window.Anthropic;
-    if (!A) return { code: "upstream_error" };
-    if (e instanceof A.APIUserAbortError || (e && e.name === "AbortError")) return { code: "cancelled" };
-    if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError) return { code: "bad_key" };
-    if (e instanceof A.RateLimitError) return { code: "rate_limited" };
-    if (e instanceof A.BadRequestError) return { code: "bad_request", message: e.message };
-    if (e instanceof A.APIConnectionError) return { code: "offline" };
-    return { code: "upstream_error", message: e && e.message };
+    if (A && e instanceof A.APIUserAbortError || (e && e.name === "AbortError")) return { code: "cancelled" };
+    const body = (e && e.error && e.error.error) || {};
+    const status = e && e.status, type = (e && e.type) || body.type || "", message = body.message || (e && e.message) || "";
+    const raw = { status, type, message: String(message).slice(0, 300), id: e && e.requestID };
+    const is = (re) => re.test(message);
+    if (A && e instanceof A.APIConnectionError) return { ...raw, code: "offline" };
+    if (type === "billing_error" || status === 402 || is(/credit balance/i)) return { ...raw, code: "no_credit" };
+    if ((body.details && body.details.error_code === "enforced_spend_limit_reached") || is(/usage limits|spend limit/i)) return { ...raw, code: "spend_limit" };
+    if (status === 401 || type === "authentication_error") return { ...raw, code: "bad_key" };
+    if (status === 403 || type === "permission_error") return { ...raw, code: "no_access" };
+    if (status === 404 || type === "not_found_error") return { ...raw, code: "no_model" };
+    if (status === 413 || type === "request_too_large") return { ...raw, code: "too_large" };
+    if (status === 429 || type === "rate_limit_error") return { ...raw, code: "rate_limited" };
+    if (status === 529 || type === "overloaded_error") return { ...raw, code: "overloaded" };
+    if (status === 400 || type === "invalid_request_error") return { ...raw, code: "bad_request" };
+    return { ...raw, code: "upstream_error" };
   };
+  /* Features this key's account has turned down this session (a 400 that went away once they were dropped). */
+  const off = { fallbacks: false, schema: false, effort: false };
+  NS.aiOff = off;
   function makeSample() {
     const client = new window.Anthropic({ apiKey: getKey(), dangerouslyAllowBrowser: true });
-    async function run(input, opts = {}, schema, noFallback) {
+    async function run(input, opts = {}, schema) {
       const turns = typeof input === "string" ? [{ role: "user", content: input }] : input.map((t) => ({ role: t.role, content: t.content }));
       const merged = []; turns.forEach((t) => { const last = merged[merged.length - 1]; if (last && last.role === t.role) last.content += "\n\n" + t.content; else merged.push({ ...t }); });
-      if (opts.images && opts.images.length) {
-        const blocks = await Promise.all([...opts.images].map(async (f) => { const b = await shrink(f); return { type: "image", source: { type: "base64", media_type: "image/jpeg", data: await toB64(b) } }; }));
-        const last = merged[merged.length - 1]; last.content = [...blocks, { type: "text", text: last.content }];
+      const images = opts.images && opts.images.length ? await Promise.all([...opts.images].map(async (f) => { const b = await shrink(f); return { type: "image", source: { type: "base64", media_type: "image/jpeg", data: await toB64(b) } }; })) : null;
+      // Try the full request first; on a 400, drop one optional feature at a time and try again.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const msgs = merged.map((m) => ({ ...m }));
+        const last = msgs[msgs.length - 1];
+        if (schema && off.schema) last.content += "\n\nReply with only a JSON object (no prose, no code fences) that matches this JSON Schema:\n" + JSON.stringify(schema);
+        if (images) last.content = [...images, { type: "text", text: last.content }];
+        const params = { model: MODEL, max_tokens: 64000, messages: msgs };
+        if (!off.effort) params.output_config = { effort: opts.effort || "medium" };
+        if (schema && !off.schema) params.output_config = { ...(params.output_config || {}), format: { type: "json_schema", schema } };
+        if (!off.fallbacks) Object.assign(params, { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
+        try {
+          const stream = client.beta.messages.stream(params, { signal: opts.signal });
+          if (opts.onText) { let text = ""; stream.on("text", (d) => { text += d; opts.onText({ text, delta: d }); }); }
+          const msg = await stream.finalMessage();
+          if (msg.stop_reason === "refusal") throw { code: "refused" };
+          const text = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+          if (!text.trim()) throw { code: "empty_completion" };
+          return { text, truncated: msg.stop_reason === "max_tokens" };
+        } catch (e) {
+          if (e && e.code) throw e;
+          const m = mapErr(e);
+          if (m.code !== "bad_request") throw m;
+          const hint = m.message.toLowerCase();
+          const next = !off.fallbacks && (/fallback|beta/.test(hint) || !/schema|format|effort/.test(hint)) ? "fallbacks"
+            : schema && !off.schema && /schema|format|output_config|json/.test(hint) ? "schema"
+            : !off.effort && /effort|output_config/.test(hint) ? "effort"
+            : schema && !off.schema ? "schema" : null;
+          if (!next) throw m;
+          off[next] = true;
+        }
       }
-      const params = { model: MODEL, max_tokens: 16000, messages: merged, output_config: { effort: opts.effort || "medium" } };
-      if (schema) params.output_config.format = { type: "json_schema", schema };
-      if (!noFallback) Object.assign(params, { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
-      try {
-        const stream = client.beta.messages.stream(params, { signal: opts.signal });
-        if (opts.onText) { let text = ""; stream.on("text", (d) => { text += d; opts.onText({ text, delta: d }); }); }
-        const msg = await stream.finalMessage();
-        if (msg.stop_reason === "refusal") throw { code: "refused" };
-        const text = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-        if (!text.trim()) throw { code: "empty_completion" };
-        return { text, truncated: msg.stop_reason === "max_tokens" };
-      } catch (e) {
-        if (e && e.code) throw e;
-        const m = mapErr(e);
-        if (m.code === "bad_request" && !noFallback && /fallback/i.test(m.message || "")) return run(input, opts, schema, true);
-        throw m;
-      }
+      throw { code: "bad_request" };
     }
     const sample = (input, opts) => run(input, opts);
     sample.json = async (input, opts = {}) => { const r = await run(input, opts, opts.schema); try { return parseLoose(r.text); } catch (e) { throw { code: "invalid_json", text: r.text }; } };
@@ -100,8 +125,18 @@
   NS.acts["ai-test"] = async () => {
     const msg = document.getElementById("ai-msg"); if (!msg || !NS.sample) return;
     msg.innerHTML = `<span class="thinking">Checking</span>`;
-    try { await NS.sample("Reply with the single word: ready", { effort: "low" }); msg.innerHTML = `<span class="ok">Working.</span> AI is on.`; }
-    catch (e) { msg.textContent = NS.aiErrCopy ? NS.aiErrCopy(e) : "That didn't work."; }
+    const t0 = performance.now();
+    try {
+      const r = await NS.sample.json("This is a connection test. Set ok to true.", { effort: "low", schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false } });
+      const secs = ((performance.now() - t0) / 1000).toFixed(1);
+      const dropped = Object.keys(off).filter((k) => off[k]);
+      msg.innerHTML = r && r.ok === true
+        ? `<span class="ok">Working.</span> Claude answered in ${secs}s.${dropped.length ? ` <span class="dim">(Running without: ${NS.esc(dropped.join(", "))}.)</span>` : ""}`
+        : `<span class="warn">Connected, but the answer came back odd.</span> Setup might still work. Try adding a car.`;
+    } catch (e) {
+      const raw = [e.status ? "HTTP " + e.status : "", e.type, e.message, e.id].filter(Boolean).join(" · ");
+      msg.innerHTML = `${NS.esc(NS.aiErrCopy ? NS.aiErrCopy(e) : "That didn't work.")}${raw ? `<div class="mono dim" style="font-size:11.5px;margin-top:6px;word-break:break-word;user-select:text">${NS.esc(raw)}</div>` : ""}`;
+    }
   };
   NS.connectAssets = async () => {
     NS.assets = {

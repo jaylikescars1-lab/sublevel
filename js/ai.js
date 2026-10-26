@@ -18,7 +18,13 @@
     if (c === "offline") return "No connection. AI needs the internet.";
     if (c === "bad_request") return "Claude couldn't take that request. Try again with less text.";
     if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "capability_disabled") { NS.sample = null; return "Claude isn't allowed for this page. Turn it on from the page's permissions to use this."; }
-    if (c === "rate_limited") return "Too many requests right now. Try again in a minute.";
+    if (c === "no_credit") return "Your Anthropic account is out of credit. Add some at console.anthropic.com → Billing, then try again.";
+    if (c === "spend_limit") return "Your Anthropic account hit its monthly spend limit. Raise it at console.anthropic.com → Limits, or wait for it to reset.";
+    if (c === "no_access") return "That key isn't allowed to use Claude Opus 5.5. Check the key's workspace at console.anthropic.com.";
+    if (c === "no_model") return "Your Anthropic account can't use Claude Opus 5.5 yet. Check console.anthropic.com → Limits.";
+    if (c === "overloaded") return "Claude is busy right now. Try again in a minute.";
+    if (c === "too_large") return "That was too big to send. Try a smaller photo or less text.";
+    if (c === "rate_limited") return "You hit your account's rate limit. New accounts start low. Wait a minute and try again.";
     if (c === "invalid_json") return "Couldn't read that one. Try again, or paste less text.";
     if (c === "refused") return "Claude wouldn't answer that one. Try rephrasing.";
     if (c === "image_rejected") return "That image didn't work. Try a clearer photo.";

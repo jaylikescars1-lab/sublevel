@@ -16,6 +16,7 @@
   window.addEventListener("hashchange", () => { const r = location.hash.slice(1); if (NS.views[r] && r !== NS.route) NS.go(r); });
 
   NS.progressInit();
+  NS.cleanSample();
   NS.boot();
   NS.connect();
   NS.connectAssets();

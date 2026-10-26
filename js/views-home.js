@@ -78,12 +78,29 @@
     </button>`;
   }
 
+  NS.phoneURL = "https://jaylikescars1-lab.github.io/sublevel/";
+  function handoff() {
+    return `<section class="handoff" aria-label="Phone app">
+      <div><span class="px vio">CLAUDE.AI COPY</span><p><b>Your garage lives in the phone app now.</b> Anything you change here stays here until you send it over.</p></div>
+      <div class="row"><a class="btn sm" href="${NS.phoneURL}" target="_blank" rel="noopener">${icon("arrow")}Open phone app</a><button class="btn sm primary" data-act="handoff-open">${icon("share")}Send to phone</button></div>
+    </section>`;
+  }
+  NS.acts["handoff-open"] = () => {
+    NS.sheet(NS.sheetHead("ONE GARAGE", "Send this garage to your phone") + `
+      <ol class="handoff-steps">
+        <li><b>Export it.</b> Saves one file with your whole garage and its photos.<div class="row" style="margin-top:8px"><button class="btn primary sm" data-act="backup-export">${icon("share")}Export backup</button></div><div id="bk-msg" class="muted" style="font-size:13.5px;margin-top:6px"></div></li>
+        <li><b>Get the file onto your phone.</b> Files, iCloud Drive, AirDrop or email all work.</li>
+        <li><b>Open SUBLEVEL on your phone</b> → More → Settings → Import a backup → <b>Merge it in</b>. It adds what's new and keeps everything already there.</li>
+      </ol>
+      <p class="dim" style="font-size:13.5px;margin:12px 0 0">Phone app: <span class="mono" style="color:var(--fg-2);word-break:break-all;font-size:12.5px">${NS.phoneURL}</span>. Going the other way works the same: export on the phone, merge here.</p>`);
+  };
+  NS.acts["tiles-more"] = () => { NS.ui.allTiles = !NS.ui.allTiles; NS.render({ quiet: true }); };
+
   NS.views.garage = function () {
     const S = NS.S, v = NS.veh();
     const rel = NS.reliability(v);
     const pct = NS.buildPct(v);
     const sys = NS.systemPct(v);
-    const nm = NS.nextMoves(v)[0];
     const log = NS.sortedLog(v).filter((l) => !(l.tags || []).includes("quick"));
     const last = log[0];
     const svc = NS.lastService(v);
@@ -100,6 +117,7 @@
       <div class="tagline">BUILD <b>/</b> TRACK <b>/</b> LEARN <b>/</b> HUNT</div>
       <div class="statusline" aria-label="Garage status">${statusLine(v, last)}</div>
     </section>
+    ${NS.standalone ? "" : handoff()}
     ${vehicles.length > 1 ? `<div class="chips" style="margin-bottom:12px">${vehicles.map((x) => `<button class="chip" data-act="switch-veh" data-id="${x.id}" aria-pressed="${x.id === v.id}">${esc(x.year + " " + x.model)}</button>`).join("")}</div>` : ""}
 
     <article class="panel hero brackets">
@@ -115,11 +133,9 @@
       ${heroStage(v)}
       <div class="hero-stats">
         <button data-act="edit-mileage"><div class="stat"><div class="k">Mileage</div><div class="v">${num(v.mileage)}</div><div class="s">Tap to update</div></div></button>
-        <button data-act="edit-vehicle"><div class="stat"><div class="k">Est. value</div><div class="v">${money(v.value)}</div><div class="s">${v.value >= NS.invested(v) ? '<span class="ok">Above</span>' : '<span class="warn">Under</span>'} what you've put in</div></div></button>
-        <button data-act="go" data-r="money"><div class="stat"><div class="k">Money invested</div><div class="v">${money(NS.invested(v))}</div><div class="s">Car ${money(v.purchasePrice)} + build ${money(NS.spent(v))}</div></div></button>
-        <button data-act="go" data-r="build"><div class="stat"><div class="k">Next planned mod</div><div class="v" style="font-size:19px;line-height:1.2">${esc(nm && nm.mod ? nm.mod.title : nm ? nm.title : "—")}</div></div></button>
         <button data-act="go" data-r="build"><div class="stat"><div class="k">Reliability</div><div class="v ${rel.score >= 85 ? "ok" : rel.score >= 55 ? "warn" : "bad"}">${rel.score}<span style="font-size:14px" class="dim"> /100</span></div><div class="s">${rel.label}${rel.issues.length ? " · " + esc(rel.issues.slice(0, 2).join(", ")) + " open" : ""}</div></div></button>
-        <button data-act="go" data-r="build"><div class="stat"><div class="k">Build</div><div class="v">${pct}%</div><div class="s">${v.mods.filter((m) => m.status === "done").length} of ${v.mods.length} mods done</div></div></button>
+        <button data-act="go" data-r="money"><div class="stat"><div class="k">Money invested</div><div class="v">${money(NS.invested(v))}</div><div class="s">Car ${money(v.purchasePrice)} + build ${money(NS.spent(v))}</div></div></button>
+        <button data-act="edit-vehicle"><div class="stat"><div class="k">Est. value</div><div class="v">${money(v.value)}</div><div class="s">${v.value >= NS.invested(v) ? '<span class="ok">Above</span>' : '<span class="warn">Under</span>'} what you've put in</div></div></button>
       </div>
       <div class="hero-cta">
         <button class="enter" data-act="go" data-r="build">ENTER GARAGE ${icon("arrow")}</button>
@@ -144,16 +160,17 @@
     <div class="home-grid">${NS.quickHTML(v)}${NS.recapHTML(v)}</div>
 
     <section class="section" aria-label="Garage telemetry">
-      <div class="sec-head"><h2 class="h2">Telemetry</h2><span class="px dim">UPDATED ${NS.fmtDate(NS.today())}</span></div>
+      <div class="sec-head"><h2 class="h2">Telemetry</h2><button class="btn sm ghost" data-act="tiles-more">${NS.ui.allTiles ? "Less" : "All 8"} ${icon("chev")}</button></div>
       <div class="tiles">
         <button class="tile" data-act="go" data-r="log"><span class="k">Last garage session</span><span class="v">${last ? NS.daysAgo(last.date) : "—"}</span><span class="s">${last ? esc(last.title) : "Nothing logged yet"}</span></button>
-        <button class="tile" data-act="go" data-r="money"><span class="k">Spent this month</span><span class="v">${money(NS.monthSpent(v))}</span><span class="s">${monthN} purchase${monthN === 1 ? "" : "s"}</span></button>
-        <button class="tile" data-act="go" data-r="log"><span class="k">Miles since last service</span><span class="v">${svc ? num(v.mileage - svc.mileage) : "—"}<span class="dim" style="font-size:13px"> mi</span></span><span class="s">${svc ? esc(svc.title) + " · " + NS.fmtDate(svc.date) : "No service logged"}</span></button>
         <button class="tile" data-act="go" data-r="service"><span class="k">Next maintenance</span><span class="v ${nmaint.left < 500 ? "warn" : ""}">${nmaint.at ? num(Math.max(0, nmaint.left)) : "Now"}<span class="dim" style="font-size:13px">${nmaint.at ? " mi" : ""}</span></span><span class="s">${esc(nmaint.label)}${nmaint.at ? " at " + num(nmaint.at) : ""}</span></button>
+        <button class="tile" data-act="go" data-r="money"><span class="k">Spent this month</span><span class="v">${money(NS.monthSpent(v))}</span><span class="s">${monthN} purchase${monthN === 1 ? "" : "s"}</span></button>
+        <button class="tile" data-act="go" data-r="rank"><span class="k">Hours wrenched</span><span class="v">${NS.hoursWrenched().toFixed(1)}<span class="dim" style="font-size:13px"> h</span></span><span class="s">${S.meta.session ? '<span class="warn">Session running</span>' : "Use the timer to count them"}</span></button>
+        ${NS.ui.allTiles ? `
+        <button class="tile" data-act="go" data-r="log"><span class="k">Miles since last service</span><span class="v">${svc ? num(v.mileage - svc.mileage) : "—"}<span class="dim" style="font-size:13px"> mi</span></span><span class="s">${svc ? esc(svc.title) + " · " + NS.fmtDate(svc.date) : "No service logged"}</span></button>
         <button class="tile" data-act="go" data-r="build"><span class="k">Current build level</span><span class="v">PHASE 0${phase.id}</span><span class="s">${esc(phase.title)} · ${NS.phasePct(v, phase.id)}%</span></button>
         <button class="tile" data-act="go" data-r="inventory"><span class="k">Parts waiting to install</span><span class="v">${waiting.length}</span><span class="s">${waiting.length ? esc(waiting.map((p) => p.name.replace(/^Audio: /, "")).join(", ")) : "All installed"}</span></button>
-        <button class="tile" data-act="go" data-r="rank"><span class="k">Hours wrenched</span><span class="v">${NS.hoursWrenched().toFixed(1)}<span class="dim" style="font-size:13px"> h</span></span><span class="s">${S.meta.session ? '<span class="warn">Session running</span>' : "Use the timer to count them"}</span></button>
-        <button class="tile" data-act="go" data-r="rank"><span class="k">Days with the ${esc(v.chassis || v.model)}</span><span class="v">${NS.daysOwned(v)}</span><span class="s">Since ${NS.fmtDate(v.purchaseDate || NS.today())} ${String(v.purchaseDate || "").slice(0, 4)}</span></button>
+        <button class="tile" data-act="go" data-r="rank"><span class="k">Days with the ${esc(v.chassis || v.model)}</span><span class="v">${NS.daysOwned(v)}</span><span class="s">Since ${NS.fmtDate(v.purchaseDate || NS.today())} ${String(v.purchaseDate || "").slice(0, 4)}</span></button>` : ""}
       </div>
     </section>
 

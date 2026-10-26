@@ -197,7 +197,7 @@
     const q = NS.ui.diyQ.toLowerCase(); const fd = NS.ui.diyDiff;
     const learned = NS.S.meta.learned || [];
     const list = D.diy.filter((j) => (fd === "all" || diffBand(j.diff) === fd) && (!q || (j.title + " " + j.tags.join(" ") + " " + j.parts.join(" ") + " " + j.tools.join(" ")).toLowerCase().includes(q)));
-    return `
+    return `${NS.subnav()}
     <div class="page-head"><div><div class="eyebrow">DIY GARAGE · LEARN</div><h1 class="h1" style="margin-top:6px">Learn it on your own car</h1><p class="lede">Every job lists what goes wrong and when to stop. Knowing when to stop is part of the skill.</p></div></div>
     <div class="kv" style="margin-bottom:16px">
       <div><div class="k">JOBS</div><div class="v">${D.diy.length}</div></div>

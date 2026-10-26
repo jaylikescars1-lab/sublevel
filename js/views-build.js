@@ -76,10 +76,11 @@
 
     ${NS.specSheetHTML ? NS.specSheetHTML(v) : ""}
 
-    <section class="section">
-      <div class="sec-head"><div><div class="eyebrow">CURRENT SETUP</div><h2 class="h2" style="margin-top:4px">What's on the car right now</h2></div><button class="btn sm" data-act="setup-add">${icon("plus")}Component</button></div>
+    <section class="section"><details class="spec-sheet" data-k="setupOpen"${NS.ui.setupOpen ? " open" : ""}>
+      <summary><div><div class="eyebrow">CURRENT SETUP · ${v.setup.length}</div><div class="spec-line">What's on the car right now</div></div>${icon("chev")}</summary>
       <div class="setup">${v.setup.map((s) => `<button class="setup-row" data-act="setup-edit" data-id="${s.id}"><span class="k">${esc(s.k)}</span><span class="v">${esc(s.v || "—")}${s.note ? `<small>${esc(s.note)}</small>` : ""}</span>${icon("edit")}</button>`).join("")}</div>
-    </section>
+      <div class="row" style="margin-top:12px"><button class="btn sm" data-act="setup-add">${icon("plus")}Component</button></div>
+    </details></section>
 
     <section class="section">
       <div class="sec-head"><div><div class="eyebrow">BUILD ROADMAP</div><h2 class="h2" style="margin-top:4px">Phase by phase</h2></div>

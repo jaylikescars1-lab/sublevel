@@ -368,9 +368,9 @@ input[type=range]{width:100%;accent-color:var(--violet-hi);height:28px;backgroun
 .hero-stats>*:nth-child(odd){border-right:1px solid var(--line)}
 .hero-stats button:hover{background:rgba(255,255,255,.02)}
 @media (min-width:720px){
-  .hero-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hero-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
   .hero-stats>*:nth-child(odd){border-right:0}
-  .hero-stats>*:not(:nth-child(3n)){border-right:1px solid var(--line)}
+  .hero-stats>*:not(:nth-child(4n)){border-right:1px solid var(--line)}
 }
 .hero-cta{padding:16px;display:flex;gap:10px;align-items:center}
 .enter{
@@ -588,6 +588,7 @@ input[type=range]{width:100%;accent-color:var(--violet-hi);height:28px;backgroun
 .warnbox h4{color:var(--bad)}
 .infobox{border-radius:14px;padding:14px;border:1px solid var(--line-2);background:var(--bg-1)}
 .infobox h4{color:var(--violet-hi)}
+.clean-list{margin:0;padding-left:18px;color:var(--fg-2);font-size:14.5px;display:grid;gap:6px}.clean-list b{color:var(--fg)}
 .infobox ul,.warnbox ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:14.5px;color:var(--fg-2)}
 
 /* ---------- inventory / money / log / style ---------- */
@@ -636,6 +637,14 @@ input[type=range]{width:100%;accent-color:var(--violet-hi);height:28px;backgroun
 .empty{padding:28px 16px;text-align:center;color:var(--fg-3);border:1px dashed var(--line-2);border-radius:14px}
 .subnav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:-4px 0 18px;padding:2px}
 .subnav::-webkit-scrollbar{display:none}
+.more-list{display:grid;gap:8px}
+.handoff{display:flex;gap:12px 18px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 14px;padding:14px 16px;border:1px solid var(--violet-lo);border-radius:14px;background:linear-gradient(180deg,rgba(106,61,240,.10),rgba(106,61,240,.03))}
+.handoff p{margin:6px 0 0;color:var(--fg-2);font-size:14.5px;max-width:58ch}.handoff p b{color:var(--fg);font-weight:500}
+.handoff-steps{margin:0;padding-left:20px;display:grid;gap:14px;color:var(--fg-2);font-size:14.5px}.handoff-steps b{color:var(--fg);font-weight:500}a.btn{text-decoration:none}
+.more-row{display:grid;grid-template-columns:22px 1fr 16px;gap:14px;align-items:center;text-align:left;padding:14px;border:1px solid var(--line-2);border-radius:14px;background:var(--bg-1);color:var(--fg-2)}
+.more-row>svg{width:22px;height:22px;color:var(--violet-hi)}.more-row>svg:last-child{width:16px;height:16px;color:var(--fg-4)}
+.more-row b{display:block;color:var(--fg);font-weight:500;font-size:15.5px}.more-row span span{display:block;font-size:13.5px;color:var(--fg-3);margin-top:2px}
+.more-row:hover{border-color:var(--violet-lo,var(--line-2));background:rgba(255,255,255,.03)}
 .subnav button{height:34px;padding:0 13px;border-radius:9px;font-family:var(--f-display);font-size:9.5px;letter-spacing:.14em;color:var(--fg-3);border:1px solid transparent;white-space:nowrap;transition:all .18s}
 .subnav button:hover{color:var(--fg)}
 .subnav button[aria-current="true"]{color:var(--fg);border-color:var(--line-2);background:rgba(255,255,255,.04)}
@@ -815,6 +824,7 @@ details.more[open]>summary::before{content:"−"}
 .spec-grid>div span:last-child{overflow-wrap:anywhere}
 .spec-sheet{border:1px solid var(--line);border-radius:16px;background:var(--bg-1);padding:14px}
 .spec-sheet[open]{border-color:var(--line-2)}
+.spec-sheet>.setup{margin-top:12px}
 .spec-sheet>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
 .spec-sheet>summary::-webkit-details-marker{display:none}
 .spec-sheet>summary svg{width:16px;height:16px;color:var(--fg-3);transform:rotate(90deg);transition:transform .2s}
@@ -861,6 +871,7 @@ details.more[open]>summary::before{content:"−"}
 <script src="js/progress.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/backup.js"></script>
+<script src="js/cleanup.js"></script>
 <script src="js/vendor/anthropic-sdk.js"></script>
 <script src="js/local.js"></script>
 <script src="js/boot.js"></script>

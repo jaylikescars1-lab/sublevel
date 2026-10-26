@@ -60,6 +60,7 @@
     play: '<path d="M7 5v14l11-7z"/>',
     stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
     share: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/>',
+    dots: '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
     receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   };
   NS.icon = (n, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ""}</svg>`;
@@ -167,7 +168,7 @@
         const next = d.data();
         if (JSON.stringify(next) !== JSON.stringify(S[d.id])) { S[d.id] = clone(next); changed = true; }
       });
-      if (changed) NS.migrate();
+      if (changed) { NS.migrate(); if (NS.onRemote) NS.onRemote(); }
       apply(changed);
     }, () => setSync("local", "ON DEVICE"));
     db.collection("vehicles").onSnapshot((snap) => {
@@ -178,7 +179,7 @@
         const next = d.data();
         if (JSON.stringify(next) !== JSON.stringify(S.vehicles[d.id])) { S.vehicles[d.id] = clone(next); changed = true; }
       });
-      if (changed) NS.migrate();
+      if (changed) { NS.migrate(); if (NS.onRemote) NS.onRemote(); }
       apply(changed);
     }, () => setSync("local", "ON DEVICE"));
   };
@@ -229,45 +230,63 @@
   }
 
   /* ---------- routing + nav ---------- */
+  /* Four sections up front. Routes marked x are the expert tools: one tap deeper, in the More drawer. */
   NS.groups = [
-    { key: "GARAGE", icon: "garage", routes: [{ r: "garage", l: "Garage", i: "garage" }] },
+    { key: "GARAGE", icon: "garage", routes: [{ r: "garage", l: "Garage", i: "garage" },
+      { r: "ask", l: "Ask the Garage", i: "chat", x: 1, d: "Ask Claude anything about your car" }] },
     { key: "BUILD", icon: "build", routes: [
-      { r: "build", l: "My Build", i: "car" }, { r: "fitment", l: "Fitment Lab", i: "wheel" },
-      { r: "calc", l: "Mod Calculator", i: "calc" }, { r: "sound", l: "Sound Lab", i: "sound" }, { r: "style", l: "Style Board", i: "board" }] },
-    { key: "TRACK", icon: "track", routes: [{ r: "log", l: "Garage Log", i: "log" }, { r: "service", l: "Service", i: "clock" }, { r: "money", l: "Money", i: "money" }, { r: "inventory", l: "Inventory", i: "box" }, { r: "rank", l: "Rank", i: "rank" }] },
-    { key: "LEARN", icon: "learn", routes: [{ r: "diy", l: "DIY Garage", i: "learn" }, { r: "ask", l: "Ask the Garage", i: "chat" }] },
+      { r: "build", l: "My Build", i: "car" }, { r: "fitment", l: "Fitment", i: "wheel" }, { r: "style", l: "Style Board", i: "board" },
+      { r: "diy", l: "DIY Garage", i: "learn", x: 1, d: "Step-by-step jobs, with tools and torque specs" },
+      { r: "calc", l: "Mod Calculator", i: "calc", x: 1, d: "What a mod really costs, all in" },
+      { r: "sound", l: "Sound Lab", i: "sound", x: 1, d: "Exhaust and audio, planned before you buy" }] },
+    { key: "TRACK", icon: "track", routes: [{ r: "log", l: "Log", i: "log" }, { r: "service", l: "Service", i: "clock" }, { r: "money", l: "Money", i: "money" },
+      { r: "inventory", l: "Inventory", i: "box", x: 1, d: "Tools you own, parts waiting to go on" },
+      { r: "rank", l: "Rank", i: "rank", x: 1, d: "XP, levels, badges and your streak" }] },
     { key: "HUNT", icon: "hunt", routes: [{ r: "hunt", l: "Hunt List", i: "hunt" }, { r: "inspect", l: "Inspection", i: "clip" }] },
   ];
   const ALL = NS.groups.flatMap((g) => g.routes.map((x) => ({ ...x, g: g.key })));
   NS.route = "garage";
   NS.lastIn = {};
   NS.groupOf = (r) => (ALL.find((x) => x.r === r) || ALL[0]).g;
+  const isX = (r) => !!(ALL.find((x) => x.r === r) || {}).x;
 
   NS.go = function (r, opts = {}) {
     if (!NS.views[r]) r = "garage";
     NS.route = r;
-    NS.lastIn[NS.groupOf(r)] = r;
+    if (!isX(r)) NS.lastIn[NS.groupOf(r)] = r;
     try { if (location.hash.slice(1) !== r) history.replaceState(null, "", "#" + r); } catch (e) {}
     NS.render();
     if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
   };
 
   function renderNav() {
-    const g = NS.groupOf(NS.route);
-    $("#tabbar").innerHTML = NS.groups.map((x) =>
-      `<button data-act="tab" data-g="${x.key}" aria-current="${x.key === g}">${NS.icon(x.icon)}<span>${x.key}</span></button>`).join("");
-    $("#sidebar").innerHTML = `<div class="sb-brand"><div class="row" style="gap:8px;flex-wrap:nowrap"><div class="wordmark">SUBLEVEL</div><span class="lvl-sign">B2</span></div><span class="px">BUILD / TRACK / LEARN / HUNT</span><div id="sb-rank"></div></div>` +
-      NS.groups.map((x) => `<h6>${x.key}</h6>` + x.routes.map((rt) =>
-        `<button data-act="go" data-r="${rt.r}" aria-current="${rt.r === NS.route}">${NS.icon(rt.i)}${rt.l}</button>`).join("")).join("") +
+    const g = NS.groupOf(NS.route), x = isX(NS.route);
+    $("#tabbar").innerHTML = NS.groups.map((t) =>
+      `<button data-act="tab" data-g="${t.key}" aria-current="${!x && t.key === g}">${NS.icon(t.icon)}<span>${t.key}</span></button>`).join("") +
+      `<button data-act="more-open" aria-current="${x}">${NS.icon("dots")}<span>MORE</span></button>`;
+    const link = (rt) => `<button data-act="go" data-r="${rt.r}" aria-current="${rt.r === NS.route}">${NS.icon(rt.i)}${rt.l}</button>`;
+    $("#sidebar").innerHTML = `<div class="sb-brand"><div class="row" style="gap:8px;flex-wrap:nowrap"><div class="wordmark">SUBLEVEL</div><span class="lvl-sign">B2</span></div><span class="px">BUILD / TRACK / HUNT</span><div id="sb-rank"></div></div>` +
+      NS.groups.map((t) => `<h6>${t.key}</h6>` + t.routes.filter((rt) => !rt.x).map(link).join("")).join("") +
+      `<h6>MORE</h6>` + ALL.filter((rt) => rt.x).map(link).join("") +
       `<div class="sb-foot"><button data-act="settings-open" style="padding:6px 0;margin-bottom:8px">${NS.icon("build")}Settings</button><span class="px dim">SL-OS 1.0 · ${esc(vehLabel(NS.veh()))}</span></div>`;
-    const cur = ALL.find((x) => x.r === NS.route);
+    const cur = ALL.find((r) => r.r === NS.route);
     $("#crumb").textContent = "/ " + (cur ? cur.l.toUpperCase() : "");
   }
   NS.subnav = function () {
-    const g = NS.groups.find((x) => x.key === NS.groupOf(NS.route));
-    if (!g || g.routes.length < 2) return "";
-    return `<nav class="subnav" aria-label="${g.key}">${g.routes.map((rt) => `<button data-act="go" data-r="${rt.r}" aria-current="${rt.r === NS.route}">${rt.l.toUpperCase()}</button>`).join("")}</nav>`;
+    const g = NS.groups.find((t) => t.key === NS.groupOf(NS.route));
+    if (!g) return "";
+    const items = g.routes.filter((rt) => !rt.x || rt.r === NS.route);
+    if (items.length < 2) return "";
+    return `<nav class="subnav" aria-label="${g.key}">${items.map((rt) => `<button data-act="go" data-r="${rt.r}" aria-current="${rt.r === NS.route}">${rt.l.toUpperCase()}</button>`).join("")}</nav>`;
   };
+
+  /* The More drawer: every expert tool, plus settings. */
+  NS.acts["more-open"] = () => {
+    const row = (rt) => `<button class="more-row" data-act="more-go" data-r="${rt.r}">${NS.icon(rt.i)}<span><b>${esc(rt.l)}</b><span>${esc(rt.d || "")}</span></span>${NS.icon("chev")}</button>`;
+    NS.sheet(NS.sheetHead("MORE", "Tools") + `<div class="more-list">${ALL.filter((rt) => rt.x).map(row).join("")}
+      <button class="more-row" data-act="settings-open">${NS.icon("build")}<span><b>Settings</b><span>AI, backup, import and export</span></span>${NS.icon("chev")}</button></div>`);
+  };
+  NS.acts["more-go"] = (el) => { NS.closeSheet(); NS.go(el.dataset.r); };
 
   NS.render = function (opts = {}) {
     renderNav();

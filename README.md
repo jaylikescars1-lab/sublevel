@@ -15,7 +15,7 @@ On your phone, and nowhere else.
 - A service worker caches the app and fonts, so it opens with no signal.
 - Nothing is uploaded. Without AI the app makes no network requests besides loading its own files. With AI on, only your AI requests go to Anthropic.
 
-Because the only copy is on the phone, export a backup now and then: tap the storage dot in the top bar (or **Backup + restore**), then **Export backup**, and save it to Files or iCloud Drive. **Import a backup** restores it on any device.
+Because the only copy is on the phone, export a backup now and then: **More → Settings → Export backup**, and save it to Files or iCloud Drive. **Import a backup** gives two choices: **Merge it in** adds anything this garage is missing and keeps everything already here (use it to bring over changes made in the claude.ai version), and **Replace everything** restores the file exactly.
 
 ## Any car, and AI
 
@@ -23,7 +23,7 @@ Add any car from **My Build → Add car**: type it the way you'd say it ("2004 L
 
 With AI on, Claude researches that exact car and fills in the spec sheet (fluids, plugs, timing, bolt pattern, lug torque, factory wheel), known issues, wheel fitment numbers, a service schedule, and a full 4-phase roadmap with costs, tools and parts. Everything stays editable, and the spec sheet in My Build has every number for people who want them.
 
-AI is optional and uses **your own Anthropic API key** (Settings → AI). The key is stored only on your phone, is never included in backups, and is sent only to Anthropic's API. Requests go straight from your phone to Anthropic using the official Anthropic SDK, bundled in `js/vendor/`. Without a key, cars start from a general template.
+AI is optional and uses **your own Anthropic API key** (More → Settings). The key is stored only on your phone, is never included in backups, and is sent only to Anthropic's API. Requests go straight from your phone to Anthropic using the official Anthropic SDK, bundled in `js/vendor/`. Without a key, cars start from a general template.
 
 ## Install on iPhone
 

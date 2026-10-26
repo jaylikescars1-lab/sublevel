@@ -232,7 +232,7 @@ Reply with only the JSON.`;
       <div class="row" style="margin-top:12px"><button class="btn sm" data-act="spec-edit">${icon("edit")}Edit specs</button>${NS.aiReady() ? `<button class="btn sm" data-act="spec-ai">${icon("spark")}Refresh with AI</button>` : ""}</div>
     </details></section>`;
   };
-  document.addEventListener("toggle", (e) => { if (e.target && e.target.matches && e.target.matches("details.spec-sheet")) NS.ui.specOpen = e.target.open; }, true);
+  document.addEventListener("toggle", (e) => { if (e.target && e.target.matches && e.target.matches("details.spec-sheet")) NS.ui[e.target.dataset.k || "specOpen"] = e.target.open; }, true);
 
   NS.acts["spec-ai"] = async () => {
     const v = NS.veh();
