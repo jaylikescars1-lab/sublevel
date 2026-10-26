@@ -18,6 +18,9 @@
     if (c === "offline") return "No connection. AI needs the internet.";
     if (c === "bad_request") return "Claude couldn't take that request. Try again with less text.";
     if (c === "not_granted" || c === "sampling_disabled" || c === "not_declared" || c === "capability_disabled") { NS.sample = null; return "Claude isn't allowed for this page. Turn it on from the page's permissions to use this."; }
+    if (c === "bad_code") return "That access code didn't work. Check it in Settings.";
+    if (c === "ai_paused") return "SUBLEVEL's AI is paused right now. Try again later.";
+    if (c === "ai_server") return "SUBLEVEL's AI is having a problem on our end. Try again later.";
     if (c === "no_credit") return "Your Anthropic account is out of credit. Add some at console.anthropic.com → Billing, then try again.";
     if (c === "spend_limit") return "Your Anthropic account hit its monthly spend limit. Raise it at console.anthropic.com → Limits, or wait for it to reset.";
     if (c === "no_access") return "That key isn't allowed to use Claude Opus 5.5. Check the key's workspace at console.anthropic.com.";
@@ -114,7 +117,7 @@ ${txt}
     const c = chat();
     if (!NS.sample) return `${NS.subnav()}
       <div class="page-head"><div><div class="eyebrow">ASK THE GARAGE</div><h1 class="h1" style="margin-top:6px">A mechanic who knows your car</h1><p class="lede">Ask anything about your build. It already knows your car, your mods, your log and what's due.</p></div></div>
-      <div class="empty">${NS.standalone ? `Ask the Garage needs AI turned on. <button class="vio" data-act="settings-open" style="text-decoration:underline">Add your Anthropic API key in Settings</button>.` : "Ask the Garage uses your Claude account, so it only works when SUBLEVEL is open in the claude.ai viewer."}</div>`;
+      <div class="empty">${NS.standalone ? `Ask the Garage needs AI turned on. <button class="vio" data-act="settings-open" style="text-decoration:underline">Turn it on in Settings</button>.` : "Ask the Garage uses your Claude account, so it only works when SUBLEVEL is open in the claude.ai viewer."}</div>`;
     return `${NS.subnav()}
     <div class="page-head"><div><div class="eyebrow">ASK THE GARAGE · ${esc(NS.veh().chassis)}</div><h1 class="h1" style="margin-top:6px">A mechanic who knows your car</h1><p class="lede">It already knows your car, your mods, your log and what's due. Safety first, and it'll tell you when to stop.</p></div>
       ${c.length ? `<button class="btn ghost sm" data-act="ask-clear">${icon("trash")}Clear</button>` : ""}</div>

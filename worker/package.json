@@ -1,0 +1,16 @@
+{
+  "name": "sublevel-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SUBLEVEL's AI server: lets the phone app use Claude with an access code instead of a personal Anthropic key.",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.132.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

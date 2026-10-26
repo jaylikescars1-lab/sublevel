@@ -26,6 +26,9 @@
     NS.sheet(NS.sheetHead("SETTINGS", "AI + your data") + `
       ${NS.aiSettingsHTML ? NS.aiSettingsHTML() : ""}
       ${NS.sampleClearHTML ? NS.sampleClearHTML() : ""}
+      <div class="lbl" style="margin:18px 0 8px">View</div>
+      <div class="seg">${[["simple", "Simple"], ["full", "Everything"]].map(([m, l]) => `<button type="button" data-act="mode-set" data-m="${m}" aria-pressed="${(NS.simple() ? "simple" : "full") === m}">${l}</button>`).join("")}</div>
+      <p class="dim" style="font-size:13.5px;margin:8px 0 0">${NS.simple() ? "Garage, build, log, service and money. Everything else is in More." : "Everything, including rank, streaks, quick wins, telemetry and the hunt tab."}</p>
       <div class="lbl" style="margin:18px 0 8px">Your data</div>
       <div class="infobox"><h4>WHERE IT LIVES</h4><p style="margin:0;color:var(--fg-2);font-size:14.5px">Everything is saved <b style="color:var(--fg)">${esc(NS.where())}</b>.${NS.standalone ? " Nothing is uploaded anywhere. If you delete the app or clear Safari's website data, it's gone, so keep a backup in Files or iCloud Drive." : ""}</p></div>
       <div class="grid g2" style="margin-top:14px">

@@ -249,7 +249,11 @@
   NS.route = "garage";
   NS.lastIn = {};
   NS.groupOf = (r) => (ALL.find((x) => x.r === r) || ALL[0]).g;
-  const isX = (r) => !!(ALL.find((x) => x.r === r) || {}).x;
+  /* Simple mode (new people start here): no rank or streaks, and the hunt and style tools move into More. */
+  NS.simple = () => NS.S.meta.mode === "simple";
+  const SIMPLE_MORE = ["style", "hunt", "inspect"], SIMPLE_HIDE = ["rank"];
+  const isX = (r) => !!(ALL.find((x) => x.r === r) || {}).x || (NS.simple() && SIMPLE_MORE.includes(r));
+  const shown = (r) => !(NS.simple() && SIMPLE_HIDE.includes(r));
 
   NS.go = function (r, opts = {}) {
     if (!NS.views[r]) r = "garage";
@@ -262,13 +266,14 @@
 
   function renderNav() {
     const g = NS.groupOf(NS.route), x = isX(NS.route);
-    $("#tabbar").innerHTML = NS.groups.map((t) =>
+    const tabs = NS.groups.filter((t) => t.routes.some((rt) => !isX(rt.r)));
+    $("#tabbar").innerHTML = tabs.map((t) =>
       `<button data-act="tab" data-g="${t.key}" aria-current="${!x && t.key === g}">${NS.icon(t.icon)}<span>${t.key}</span></button>`).join("") +
       `<button data-act="more-open" aria-current="${x}">${NS.icon("dots")}<span>MORE</span></button>`;
     const link = (rt) => `<button data-act="go" data-r="${rt.r}" aria-current="${rt.r === NS.route}">${NS.icon(rt.i)}${rt.l}</button>`;
     $("#sidebar").innerHTML = `<div class="sb-brand"><div class="row" style="gap:8px;flex-wrap:nowrap"><div class="wordmark">SUBLEVEL</div><span class="lvl-sign">B2</span></div><span class="px">BUILD / TRACK / HUNT</span><div id="sb-rank"></div></div>` +
-      NS.groups.map((t) => `<h6>${t.key}</h6>` + t.routes.filter((rt) => !rt.x).map(link).join("")).join("") +
-      `<h6>MORE</h6>` + ALL.filter((rt) => rt.x).map(link).join("") +
+      tabs.map((t) => `<h6>${t.key}</h6>` + t.routes.filter((rt) => !isX(rt.r)).map(link).join("")).join("") +
+      `<h6>MORE</h6>` + ALL.filter((rt) => isX(rt.r) && shown(rt.r)).map(link).join("") +
       `<div class="sb-foot"><button data-act="settings-open" style="padding:6px 0;margin-bottom:8px">${NS.icon("build")}Settings</button><span class="px dim">SL-OS 1.0 · ${esc(vehLabel(NS.veh()))}</span></div>`;
     const cur = ALL.find((r) => r.r === NS.route);
     $("#crumb").textContent = "/ " + (cur ? cur.l.toUpperCase() : "");
@@ -276,7 +281,7 @@
   NS.subnav = function () {
     const g = NS.groups.find((t) => t.key === NS.groupOf(NS.route));
     if (!g) return "";
-    const items = g.routes.filter((rt) => !rt.x || rt.r === NS.route);
+    const items = g.routes.filter((rt) => (!isX(rt.r) || rt.r === NS.route) && shown(rt.r));
     if (items.length < 2) return "";
     return `<nav class="subnav" aria-label="${g.key}">${items.map((rt) => `<button data-act="go" data-r="${rt.r}" aria-current="${rt.r === NS.route}">${rt.l.toUpperCase()}</button>`).join("")}</nav>`;
   };
@@ -284,8 +289,20 @@
   /* The More drawer: every expert tool, plus settings. */
   NS.acts["more-open"] = () => {
     const row = (rt) => `<button class="more-row" data-act="more-go" data-r="${rt.r}">${NS.icon(rt.i)}<span><b>${esc(rt.l)}</b><span>${esc(rt.d || "")}</span></span>${NS.icon("chev")}</button>`;
-    NS.sheet(NS.sheetHead("MORE", "Tools") + `<div class="more-list">${ALL.filter((rt) => rt.x).map(row).join("")}
-      <button class="more-row" data-act="settings-open">${NS.icon("build")}<span><b>Settings</b><span>AI, backup, import and export</span></span>${NS.icon("chev")}</button></div>`);
+    const desc = { style: "Pin wheels, colors and parts, then see the plan on your car", hunt: "Score cars for sale before you buy", inspect: "A checklist for looking at a car in person" };
+    const list = ALL.filter((rt) => isX(rt.r) && shown(rt.r)).map((rt) => ({ ...rt, d: rt.d || desc[rt.r] }));
+    NS.sheet(NS.sheetHead("MORE", "Tools") + `<div class="more-list">${list.map(row).join("")}
+      <button class="more-row" data-act="settings-open">${NS.icon("build")}<span><b>Settings</b><span>AI, backup, import and export</span></span>${NS.icon("chev")}</button>
+      ${NS.simple()
+        ? `<button class="more-row" data-act="mode-set" data-m="full">${NS.icon("board")}<span><b>Show everything</b><span>Adds rank, streaks, quick wins, telemetry and the hunt tab</span></span>${NS.icon("chev")}</button>`
+        : `<button class="more-row" data-act="mode-set" data-m="simple">${NS.icon("board")}<span><b>Simple mode</b><span>Just your garage, build, log, service and money</span></span>${NS.icon("chev")}</button>`}</div>`);
+  };
+  NS.acts["mode-set"] = (el) => {
+    NS.S.meta.mode = el.dataset.m === "simple" ? "simple" : "full";
+    NS.commit("meta", { silent: true, noProgress: true });
+    NS.closeSheet(); NS.progressInit && NS.progressInit();
+    NS.go(shown(NS.route) ? NS.route : "garage");
+    NS.toast(NS.simple() ? "Simple mode on" : "Showing everything");
   };
   NS.acts["more-go"] = (el) => { NS.closeSheet(); NS.go(el.dataset.r); };
 

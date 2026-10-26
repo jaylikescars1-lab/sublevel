@@ -26,7 +26,16 @@ Add any car from **My Build → Add car**: type it the way you'd say it ("2004 L
 
 With AI on, Claude researches that exact car and fills in the spec sheet (fluids, plugs, timing, bolt pattern, lug torque, factory wheel), known issues, wheel fitment numbers, a service schedule, and a full 4-phase roadmap with costs, tools and parts. Everything stays editable, and the spec sheet in My Build has every number for people who want them.
 
-AI is optional and uses **your own Anthropic API key** (More → Settings). The key is stored only on your phone, is never included in backups, and is sent only to Anthropic's API. Requests go straight from your phone to Anthropic using the official Anthropic SDK, bundled in `js/vendor/`. Without a key, cars start from a general template.
+AI is optional and turns on in **More → Settings** one of two ways:
+
+- **Access code:** SUBLEVEL's own server (`worker/`, a small Cloudflare Worker) holds the Anthropic key, so people only need a code. Setting it up takes about 15 minutes from a phone: see [worker/README.md](worker/README.md). Until it's deployed and `HOSTED_URL` is set in `js/local.js`, this option stays hidden.
+- **Your own Anthropic API key:** stored only on your phone, never included in backups, and sent only to Anthropic's API.
+
+Requests are made with the official Anthropic SDK, bundled in `js/vendor/`. Without AI, cars start from a general template.
+
+## Simple mode
+
+New people start in **Simple** mode: Garage, Build, Track and More, with no rank, streaks, quick wins or telemetry. **More → Show everything** (or **Settings → View**) turns the full app on. Garages that existed before Simple mode keep showing everything.
 
 ## Install on iPhone
 

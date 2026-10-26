@@ -1,0 +1,6 @@
+# SUBLEVEL AI on Cloudflare Workers. Secrets are set in the dashboard, never in this file.
+name = "sublevel-ai"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+keep_vars = true

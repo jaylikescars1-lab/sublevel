@@ -3,6 +3,7 @@
   const NS = window.NS;
   NS.standalone = true;
   const firstRun = (() => { try { return !localStorage.getItem("sublevel.v1"); } catch (e) { return false; } })();
+  if (firstRun) NS.S.meta.mode = "simple"; // new people start simple; Settings or More can show everything
 
   /* ---------- photos in IndexedDB ---------- */
   let dbp = null;
@@ -18,10 +19,14 @@
 
   /* ---------- replace the claude.ai connections ---------- */
   NS.connect = async () => { NS.setSync("local", "ON THIS PHONE"); };
-  /* ---------- AI: Claude through the user's own Anthropic API key, kept only on this phone ---------- */
+  /* ---------- AI: Claude through SUBLEVEL's server with an access code, or the person's own Anthropic key ---------- */
   const MODEL = "claude-opus-5-5";
+  const HOSTED_URL = ""; // the deployed worker/ (see worker/README.md), like "https://sublevel-ai.yourname.workers.dev"
   const KEY = "sublevel.apikey";
+  const CODE = "sublevel.aicode";
   const getKey = () => { try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; } };
+  const getCode = () => { try { return localStorage.getItem(CODE) || ""; } catch (e) { return ""; } };
+  const aiMode = () => (getKey() ? "key" : HOSTED_URL && getCode() ? "hosted" : null);
   const toB64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(blob); });
   const shrink = (file) => new Promise((res) => {
     const img = new Image();
@@ -38,6 +43,11 @@
     const raw = { status, type, message: String(message).slice(0, 300), id: e && e.requestID };
     const is = (re) => re.test(message);
     if (A && e instanceof A.APIConnectionError) return { ...raw, code: "offline" };
+    const ec = body.details && body.details.error_code;
+    if (ec === "sublevel_code_invalid") return { ...raw, code: "bad_code" };
+    if (ec === "sublevel_paused") return { ...raw, code: "ai_paused" };
+    // On SUBLEVEL's server, account problems are the server's, not this person's.
+    if (aiMode() === "hosted" && (type === "billing_error" || status === 401 || status === 402 || status === 403 || status === 404 || is(/credit balance|usage limits|spend limit/i))) return { ...raw, code: "ai_server" };
     if (type === "billing_error" || status === 402 || is(/credit balance/i)) return { ...raw, code: "no_credit" };
     if ((body.details && body.details.error_code === "enforced_spend_limit_reached") || is(/usage limits|spend limit/i)) return { ...raw, code: "spend_limit" };
     if (status === 401 || type === "authentication_error") return { ...raw, code: "bad_key" };
@@ -53,7 +63,9 @@
   const off = { fallbacks: false, schema: false, effort: false };
   NS.aiOff = off;
   function makeSample() {
-    const client = new window.Anthropic({ apiKey: getKey(), dangerouslyAllowBrowser: true });
+    const client = aiMode() === "key"
+      ? new window.Anthropic({ apiKey: getKey(), dangerouslyAllowBrowser: true })
+      : new window.Anthropic({ apiKey: "sublevel-hosted", baseURL: HOSTED_URL, dangerouslyAllowBrowser: true, defaultHeaders: { "x-sublevel-code": getCode() } });
     async function run(input, opts = {}, schema) {
       const turns = typeof input === "string" ? [{ role: "user", content: input }] : input.map((t) => ({ role: t.role, content: t.content }));
       const merged = []; turns.forEach((t) => { const last = merged[merged.length - 1]; if (last && last.role === t.role) last.content += "\n\n" + t.content; else merged.push({ ...t }); });
@@ -97,19 +109,37 @@
     return sample;
   }
   NS.connectAI = async () => {
-    NS.sample = getKey() && window.Anthropic ? makeSample() : null;
+    NS.sample = aiMode() && window.Anthropic ? makeSample() : null;
     NS.sampleImages = !!NS.sample; NS.downloads = NS.downloads || null;
     NS.render({ quiet: true });
   };
   NS.aiSettingsHTML = () => {
-    const k = getKey();
-    return `<div class="infobox"><h4>AI · CLAUDE</h4>${k
-      ? `<p style="margin:0;color:var(--fg-2);font-size:14.5px"><b class="ok">On.</b> Uses your Anthropic API key, saved only on this phone (it's never in backups). Model: Claude Opus 5.5. A full car setup costs about 15–30¢, a question or estimate a few cents.</p>
-         <div id="ai-msg" class="muted" style="font-size:13.5px;margin-top:8px"></div>
-         <div class="row" style="margin-top:10px"><button class="btn sm" data-act="ai-test">${NS.icon("spark")}Test it</button><button class="btn sm danger" data-act="ai-key-clear">Remove key</button></div>`
-      : `<p style="margin:0;color:var(--fg-2);font-size:14.5px"><b style="color:var(--fg)">Off.</b> Add an Anthropic API key to have SUBLEVEL set up any car, fill in spec sheets, estimate mods, score listings, read receipts and answer questions. Get one at <b style="color:var(--fg)">console.anthropic.com</b> → API Keys (needs a few dollars of credit). It's saved only on this phone and only sent to Anthropic.</p>
-         <div class="row" style="margin-top:10px;flex-wrap:nowrap"><input class="input" id="ai-key" type="password" placeholder="sk-ant-…" autocomplete="off" style="flex:1"><button class="btn primary sm" data-act="ai-key-save">Save</button></div>
-         <div id="ai-msg" class="muted" style="font-size:13.5px;margin-top:8px"></div>`}</div>`;
+    const mode = aiMode();
+    const p = (html) => `<p style="margin:0;color:var(--fg-2);font-size:14.5px">${html}</p>`;
+    const msg = `<div id="ai-msg" class="muted" style="font-size:13.5px;margin-top:8px"></div>`;
+    const keyRow = `<div class="row" style="margin-top:10px;flex-wrap:nowrap"><input class="input" id="ai-key" type="password" placeholder="sk-ant-…" autocomplete="off" style="flex:1"><button class="btn primary sm" data-act="ai-key-save">Save</button></div>`;
+    const what = "set up any car, fill in spec sheets, estimate mods, score listings, read receipts and answer questions";
+    let body;
+    if (mode === "key") body = p(`<b class="ok">On.</b> Uses your Anthropic API key, saved only on this phone (it's never in backups). Model: Claude Opus 5.5. A full car setup costs about 15–30¢, a question or estimate a few cents.`) + msg +
+      `<div class="row" style="margin-top:10px"><button class="btn sm" data-act="ai-test">${NS.icon("spark")}Test it</button><button class="btn sm danger" data-act="ai-key-clear">Remove key</button></div>`;
+    else if (mode === "hosted") body = p(`<b class="ok">On.</b> Using SUBLEVEL AI with access code <span class="mono" style="color:var(--fg)">${NS.esc(getCode())}</span>. Model: Claude Opus 5.5.`) + msg +
+      `<div class="row" style="margin-top:10px"><button class="btn sm" data-act="ai-test">${NS.icon("spark")}Test it</button><button class="btn sm danger" data-act="ai-code-clear">Remove code</button></div>`;
+    else if (HOSTED_URL) body = p(`<b style="color:var(--fg)">Off.</b> Enter your access code and SUBLEVEL can ${what}.`) +
+      `<div class="row" style="margin-top:10px;flex-wrap:nowrap"><input class="input mono" id="ai-code" placeholder="ACCESS CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:1;text-transform:uppercase"><button class="btn primary sm" data-act="ai-code-save">Turn on</button></div>` + msg +
+      `<details class="more" style="margin-top:12px"><summary class="lbl">Use your own Anthropic key instead</summary><p class="dim" style="font-size:13.5px;margin:8px 0 0">Get one at console.anthropic.com → API Keys. It's saved only on this phone and only sent to Anthropic.</p>${keyRow}</details>`;
+    else body = p(`<b style="color:var(--fg)">Off.</b> Add an Anthropic API key to have SUBLEVEL ${what}. Get one at <b style="color:var(--fg)">console.anthropic.com</b> → API Keys (needs a few dollars of credit). It's saved only on this phone and only sent to Anthropic.`) + keyRow + msg;
+    return `<div class="infobox"><h4>AI · CLAUDE</h4>${body}</div>`;
+  };
+  NS.acts["ai-code-save"] = async () => {
+    const v = (document.getElementById("ai-code").value || "").trim().toUpperCase(); const msg = document.getElementById("ai-msg");
+    if (!/^[A-Z0-9-]{4,40}$/.test(v)) { msg.textContent = "Access codes are letters, numbers and dashes, like JAY-7Q2K."; return; }
+    try { localStorage.setItem(CODE, v); } catch (e) { msg.textContent = "Couldn't save it on this phone."; return; }
+    await NS.connectAI(); NS.acts["settings-open"](); NS.acts["ai-test"]();
+  };
+  NS.acts["ai-code-clear"] = async (el) => {
+    if (!el.classList.contains("armed")) { el.classList.add("armed"); el.textContent = "Tap again to remove"; return; }
+    try { localStorage.removeItem(CODE); } catch (e) {}
+    await NS.connectAI(); NS.acts["settings-open"]();
   };
   NS.acts["ai-key-save"] = async () => {
     const v = (document.getElementById("ai-key").value || "").trim(); const msg = document.getElementById("ai-msg");

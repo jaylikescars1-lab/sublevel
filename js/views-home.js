@@ -49,7 +49,7 @@
       <div class="row" style="margin-top:10px">
         ${job ? `<button class="btn primary" data-act="open-job" data-id="${job}">${icon("learn")}Open the guide</button>` : ""}
         ${m.mod ? `<button class="btn" data-act="finish-mod" data-id="${m.mod.id}">${icon("check")}Done, log it</button>` : m.svc ? `<button class="btn" data-act="log-new" data-preset="${m.svc}">${icon("check")}Done, log it</button>` : m.go ? `<button class="btn" data-act="go" data-r="${m.go}">${icon("clock")}Open schedule</button>` : ""}
-        ${m.mod ? `<span class="px vio" style="margin-left:auto">+${NS.modXP(m.mod) + 25} XP</span>` : ""}
+        ${m.mod && !NS.simple() ? `<span class="px vio" style="margin-left:auto">+${NS.modXP(m.mod) + 25} XP</span>` : ""}
       </div>
       ${moves.length > 1 ? `<div class="then"><span class="px dim">THEN</span>${moves.slice(1, 3).map((x, i) => `<button data-act="${x.mod ? "open-mod" : x.svc || x.go ? "go" : "noop"}" data-r="service" data-id="${x.mod ? x.mod.id : ""}"><span class="mono">0${i + 2}</span><span>${esc(x.title)} <span class="dim">${x.cost ? money(x.cost) : ""}</span></span></button>`).join("")}</div>` : ""}
     </section>`;
@@ -62,7 +62,7 @@
       hr >= 22 || hr < 4 ? `<span class="vio">LATE SHIFT</span>` : "",
       `DAY ${NS.daysOwned(v)} WITH THE ${esc((v.chassis || v.model).toUpperCase())}`,
       last ? `LAST SESSION ${NS.daysAgo(last.date).toUpperCase()}` : "NO SESSIONS YET",
-      st.n ? `<span class="${st.atRisk ? "warn" : "vio"}">${st.n}-WEEK STREAK${st.atRisk ? " · AT RISK" : ""}</span>` : "",
+      st.n && !NS.simple() ? `<span class="${st.atRisk ? "warn" : "vio"}">${st.n}-WEEK STREAK${st.atRisk ? " · AT RISK" : ""}</span>` : "",
       `${num(ms.at)} IN ${num(ms.left)} MI`,
     ].filter(Boolean);
     return bits.map((b) => `<span>${b}</span>`).join("<i>·</i>");
@@ -140,13 +140,21 @@
       </div>
       <div class="hero-cta">
         <button class="enter" data-act="go" data-r="build">ENTER GARAGE ${icon("arrow")}</button>
-        ${S.meta.session ? `<button class="sess-btn on" data-act="session-stop" aria-label="End garage session">${icon("stop")}<span>END</span></button>` : `<button class="sess-btn" data-act="session-start" aria-label="Start garage session timer">${icon("play")}<span>TIMER</span></button>`}
+        ${NS.simple() && !S.meta.session ? "" : S.meta.session ? `<button class="sess-btn on" data-act="session-stop" aria-label="End garage session">${icon("stop")}<span>END</span></button>` : `<button class="sess-btn" data-act="session-start" aria-label="Start garage session timer">${icon("play")}<span>TIMER</span></button>`}
         <button class="sess-btn" data-act="build-card" aria-label="Share build card">${icon("share")}<span>SHARE</span></button>
       </div>
     </article>
     ${NS.backupNudge ? NS.backupNudge() : ""}
 
-    <div class="home-grid">
+    ${NS.simple() ? `
+    ${nextMove(v)}
+    <div class="section">
+      <section class="panel flat">
+        <div class="sec-head"><h2 class="h2">Garage log</h2><button class="btn sm" data-act="log-new">${icon("plus")}Log</button></div>
+        <div class="feed">${log.slice(0, 5).map((l) => `<button class="feed-row" data-act="log-edit" data-id="${l.id}" style="text-align:left;width:100%"><span class="d">${NS.fmtDate(l.date)}</span><span>${esc(l.title)}</span><span class="mono dim" style="font-size:12px">${l.cost ? money(l.cost) : ""}</span></button>`).join("") || '<div class="empty">Log your first garage session.</div>'}</div>
+      </section>
+    </div>
+` : `    <div class="home-grid">
       ${nextMove(v)}
       <section class="panel" aria-label="Build status">
         <div class="sec-head" style="margin-bottom:16px"><h2 class="h2">Build status</h2><span class="px dim">LIVE · ${esc(v.chassis)}</span></div>
@@ -186,6 +194,7 @@
       </section>
     </div>
 
+`}
     <footer class="foot"><span>SL-OS 1.0 · LEVEL B2 · ${esc(v.chassis)} · ${esc(v.engine)}</span><button data-act="backup-open" class="px" style="color:inherit;letter-spacing:inherit">DATA SAVED ${esc(NS.where().toUpperCase())} · BACKUP</button></footer>`;
   };
 

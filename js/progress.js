@@ -133,6 +133,7 @@
       NS.S.meta.seenBadges = Array.from(NS._seen);
       NS.commit("meta", { silent: true, noProgress: true });
     }
+    if (NS.simple()) { if (cel) NS.celebrate({ title: cel.title, kicker: cel.kicker, small: true }); return; }
     const badges = fresh.map((id) => NS.badges.find((b) => b.id === id));
     if (cel || L1.n > L0.n) NS.celebrate({ title: cel ? cel.title : "LEVEL UP", kicker: cel ? cel.kicker : "RANK", xp: xp - before, level: L1.n > L0.n ? L1 : null, badges });
     else if (badges.length) NS.celebrate({ title: badges[0].n, kicker: "BADGE UNLOCKED", xp: xp - before, badges, small: true });
@@ -184,11 +185,13 @@
   NS.chrome = function () {
     const xp = NS.xpBreakdown().total; const L = NS.level(xp); const s = NS.S.meta.session;
     const chip = document.getElementById("lvl");
+    if (chip) chip.hidden = NS.simple();
     if (chip) chip.innerHTML = `<span class="ring sm" style="--p:${Math.round(L.pct * 100)}"></span><span>LV${L.n}</span>`;
     const sess = document.getElementById("sess");
     if (sess) { sess.hidden = !s; if (s) sess.innerHTML = `<i></i><span id="sess-t">${fmtDur(Date.now() - s.start)}</span>`; }
     const sb = document.getElementById("sb-rank");
-    if (sb) sb.innerHTML = `<button class="sb-rank" data-act="go" data-r="rank"><span class="px">LV ${L.n} · ${esc(L.name)}</span><span class="meter"><b style="width:${L.pct * 100}%"></b></span><span class="px dim">${L.next ? num(L.toNext) + " XP TO " + esc(L.nextName) : "MAX RANK"}</span></button>`;
+    if (sb && NS.simple()) sb.innerHTML = "";
+    else if (sb) sb.innerHTML = `<button class="sb-rank" data-act="go" data-r="rank"><span class="px">LV ${L.n} · ${esc(L.name)}</span><span class="meter"><b style="width:${L.pct * 100}%"></b></span><span class="px dim">${L.next ? num(L.toNext) + " XP TO " + esc(L.nextName) : "MAX RANK"}</span></button>`;
   };
 
   /* ---------- rank view ---------- */
