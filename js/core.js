@@ -75,6 +75,7 @@
   NS.S = S;
 
   /* The 1996–2000 Civic (EK coupe/hatch, EJ coupe, EM Si): Honda's schedule, specs and calibrated fitment apply. */
+  NS.FEEDBACK = "https://github.com/jaylikescars1-lab/sublevel/issues/new/choose";
   NS.isEK = (v) => /^(EK|EJ|EM)\d?$/i.test((v && v.chassis) || "") || (/honda/i.test((v && v.make) || "") && /^D16Y[578]\b/i.test((v && v.engine) || ""));
   /* Fill in fields newer versions added, without writing anything until the next real edit. */
   NS.migrate = function () {
@@ -117,7 +118,14 @@
   }
   NS.setSync = setSync;
 
-  function saveLocal() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
+  // A failed save must never be silent: storage can be full, blocked, or in a private window.
+  function saveLocal() {
+    try { localStorage.setItem(LS, JSON.stringify(S)); NS.saveFailed = false; }
+    catch (e) {
+      if (!NS.saveFailed) setTimeout(() => NS.toast(NS.standalone ? "Couldn't save on this phone: its storage is full or blocked. Export a backup from Settings now." : "Couldn't save in this browser. Export a backup from Settings now."), 0);
+      NS.saveFailed = true;
+    }
+  }
 
   function docRef(key) {
     if (key.startsWith("v:")) return NS.db.collection("vehicles").doc(key.slice(2));
@@ -310,7 +318,8 @@
       <button class="more-row" data-act="settings-open">${NS.icon("build")}<span><b>Settings</b><span>AI, backup, import and export</span></span>${NS.icon("chev")}</button>
       ${NS.simple()
         ? `<button class="more-row" data-act="mode-set" data-m="full">${NS.icon("board")}<span><b>Show everything</b><span>Adds rank, streaks, quick wins, telemetry and the hunt tab</span></span>${NS.icon("chev")}</button>`
-        : `<button class="more-row" data-act="mode-set" data-m="simple">${NS.icon("board")}<span><b>Simple mode</b><span>Just your garage, build, log, service and money</span></span>${NS.icon("chev")}</button>`}</div>`);
+        : `<button class="more-row" data-act="mode-set" data-m="simple">${NS.icon("board")}<span><b>Simple mode</b><span>Just your garage, build, log, service and money</span></span>${NS.icon("chev")}</button>`}
+      <a class="more-row" href="${NS.FEEDBACK}" target="_blank" rel="noopener">${NS.icon("chat")}<span><b>Send feedback</b><span>Report a bug or ask for a feature</span></span>${NS.icon("chev")}</a></div>`);
   };
   NS.acts["mode-set"] = (el) => {
     NS.S.meta.mode = el.dataset.m === "simple" ? "simple" : "full";

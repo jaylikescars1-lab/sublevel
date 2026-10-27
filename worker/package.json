@@ -12,5 +12,21 @@
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "ANTHROPIC_API_KEY": {
+        "description": "Your Anthropic API key, from [console.anthropic.com](https://console.anthropic.com) → API Keys. Set a monthly spend limit there first: it caps what the server can ever cost you."
+      },
+      "SOLANA_RPC": {
+        "description": "Where the server checks USDC payments. The default public address works but is rate-limited; a free mainnet URL from a provider like [Helius](https://www.helius.dev) is more reliable."
+      },
+      "SOL_ADDRESS": {
+        "description": "The Solana wallet (your Phantom address) that receives USDC from people buying AI credit."
+      },
+      "LEDGER": {
+        "description": "Stores paid access codes and their remaining credit. Created for you; nothing to set."
+      }
+    }
   }
 }

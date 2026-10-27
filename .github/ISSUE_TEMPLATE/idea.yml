@@ -1,0 +1,15 @@
+name: Idea or request
+description: Something you wish SUBLEVEL did, or a car it gets wrong.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would make it better?
+    validations:
+      required: true
+  - type: input
+    id: car
+    attributes:
+      label: Your car
+      placeholder: 2004 Lexus IS300

@@ -106,7 +106,7 @@
       <g font-family="JetBrains Mono, monospace" font-size="12.5" fill="#8a86a0">
         <line x1="${X(0)}" y1="${Y(yMax)}" x2="${X(0)}" y2="${Hh}" stroke="#a98cff" stroke-opacity=".45" stroke-dasharray="3 4"/>
         <text x="${+X(0) + 4}" y="${Hh - 6}">HUB FACE</text>
-        <rect x="${X(-C.innerLimit - 24)}" y="${Y(yMax - 18)}" width="${(24 * k).toFixed(1)}" height="${(+Y(yMin + 20) - +Y(yMax - 18)).toFixed(1)}" fill="url(#hatch)" stroke="#48445a"/>
+        <rect x="${X(-C.innerLimit - 24)}" y="${Math.max(52, +Y(yMax - 18))}" width="${(24 * k).toFixed(1)}" height="${(+Y(yMin + 20) - Math.max(52, +Y(yMax - 18))).toFixed(1)}" fill="url(#hatch)" stroke="#48445a"/>
         <text x="${X(-C.innerLimit - 12)}" y="${Hh - 6}" text-anchor="middle">${axle === "rear" ? "ARM" : "STRUT"}</text>
         <polygon points="${rimP}" fill="url(#rimg)" opacity=".85"/>
         <polygon points="${tireP}" fill="url(#tread)" stroke="#3a3747" stroke-width="1.2"/>

@@ -1,0 +1,3 @@
+# Secrets the Deploy to Cloudflare page asks for. Never commit a real .dev.vars.
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+SOLANA_RPC=https://api.mainnet-beta.solana.com

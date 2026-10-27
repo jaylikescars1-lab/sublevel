@@ -1,6 +1,12 @@
 /* Claude inside the garage: listing scorer, receipt scanner, Ask the Garage. Runs on the viewer's own Claude account. */
 (function () {
   const NS = window.NS, D = window.NS_DATA;
+  /* Structured output schemas: every object closed and every key required (nullable where a listing may not say). */
+  const obj = (props) => ({ type: "object", properties: props, required: Object.keys(props), additionalProperties: false });
+  const nul = (t) => ({ anyOf: [t, { type: "null" }] });
+  const str = { type: "string" }, int = { type: "integer" }, numb = { type: "number" }, en = (...v) => ({ type: "string", enum: v });
+  const LISTING = obj({ year: nul(int), title: str, make: nul(str), price: nul(int), miles: nul(int), location: nul(str), trans: nul(en("Manual", "Auto")), drive: nul(en("FWD", "RWD", "AWD")),
+    tags: { type: "array", items: en("jdm", "turbo") }, scores: obj({ price: int, reliability: int, fun: int, mod: int, risk: int }), summary: str, redFlags: { type: "array", items: str }, questions: { type: "array", items: str } });
   const { esc, money, num, icon } = NS;
   NS.sample = null; NS.sampleImages = false;
   NS.aiSettingsHTML = () => `<div class="infobox"><h4>AI · CLAUDE</h4><p style="margin:0;color:var(--fg-2);font-size:14.5px">${NS.sample ? "On. Here it runs on your claude.ai account: car setup, spec sheets, mod estimates, listing scores, receipts and Ask the Garage." : "Off in this view. It works when SUBLEVEL is open in the claude.ai viewer."}</p></div>`;
@@ -78,7 +84,7 @@ LISTING:
 ${txt}
 """`;
     try {
-      const r = await NS.sample.json(prompt, { modelTier: "default" });
+      const r = await NS.sample.json(prompt, { schema: LISTING, effort: "medium", modelTier: "default" });
       if (!r || typeof r !== "object") throw { code: "invalid_json" };
       const s = r.scores || {};
       const cl = (n) => Math.max(0, Math.min(10, Math.round(+n || 5)));
@@ -100,7 +106,7 @@ ${txt}
       const f = inp.files && inp.files[0]; if (!f) return;
       NS.sheet(NS.sheetHead("RECEIPT", "Reading your receipt") + `<div class="empty"><span class="thinking">Reading the receipt</span></div>`);
       try {
-        const r = await NS.sample.json(`This photo is a receipt for car parts, tools or service. Reply with ONLY JSON: {"item":"what was bought, 6 words max","amount":12.34,"date":"YYYY-MM-DD or null","cat":"one of ${D.expenseCats.join(", ")}"}. amount is the total paid including tax.`, { images: [f], modelTier: "default" });
+        const r = await NS.sample.json(`This photo is a receipt for car parts, tools or service. Reply with ONLY JSON: {"item":"what was bought, 6 words max","amount":12.34,"date":"YYYY-MM-DD or null","cat":"one of ${D.expenseCats.join(", ")}"}. amount is the total paid including tax.`, { images: [f], effort: "low", modelTier: "default", schema: obj({ item: str, amount: numb, date: nul(str), cat: en(...D.expenseCats) }) });
         NS.closeSheet();
         NS.expenseForm({ item: r.item || "", amount: Math.round((+r.amount || 0) * 100) / 100, date: /^\d{4}-\d{2}-\d{2}$/.test(r.date || "") ? r.date : NS.today(), cat: D.expenseCats.includes(r.cat) ? r.cat : "Maintenance", worth: 0 });
       } catch (e) { NS.closeSheet(); NS.toast(errCopy(e) || "Cancelled"); }

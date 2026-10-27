@@ -18,6 +18,8 @@ On your phone, and nowhere else.
 
 The full privacy notice is in [privacy.html](privacy.html).
 
+The phone also keeps up to 10 **earlier versions** of the garage, one from the start of each day and one before every restore, so a mistake can be undone from **Settings → Earlier versions**. They live on the same phone, so they don't replace a backup.
+
 Because the only copy is on the phone, export a backup now and then: **More → Settings → Export backup**, and save it to Files or iCloud Drive. **Import a backup** gives two choices: **Merge it in** adds anything this garage is missing and keeps everything already here (use it to bring over changes made in the claude.ai version), and **Replace everything** restores the file exactly.
 
 ## Any car, and AI
@@ -31,7 +33,13 @@ AI is optional and turns on in **More → Settings** one of two ways:
 - **Access code:** SUBLEVEL's own server (`worker/`, a small Cloudflare Worker) holds the Anthropic key, so people only need a code. They buy one in the app with USDC through Phantom, and it's issued instantly. Setting it up takes about 15 minutes from a phone: see [worker/README.md](worker/README.md). Until it's deployed and `HOSTED_URL` is set in `js/local.js`, this option stays hidden.
 - **Your own Anthropic API key:** stored only on your phone, never included in backups, and sent only to Anthropic's API.
 
-Requests are made with the official Anthropic SDK, bundled in `js/vendor/`. Without AI, cars start from a general template.
+Requests are made with the official Anthropic SDK, bundled in `js/vendor/` and loaded only once AI is turned on. Without AI, cars start from a general template.
+
+## Where the numbers come from
+
+- **1996–2000 Civic:** the service schedule (normal and severe), fluids, capacities and torque specs come from Honda's service manual for these cars, cited in the app.
+- **Wheel fitment:** tire-width rules from the tire industry standard (ETRTO), calibrated to real owner-reported Civic setups, front and rear. Owners can replace the averages with their own tape measurements (**Fitment → Measure my car**).
+- **Any other car:** researched by Claude when AI is on, marked as AI-researched, and editable.
 
 ## Simple mode
 
@@ -50,6 +58,14 @@ New people start in **Simple** mode: Garage, Build, Track and More, with no rank
 3. The site appears at `https://<your-username>.github.io/<repo-name>/` a minute or two later.
 
 The repo only holds the app code and a sample build. Your own garage is never in the repo.
+
+## Tests
+
+`tests/` checks the fitment math against owner-reported setups and runs the app in a real browser at iPhone size. They run automatically on every push; see [tests/README.md](tests/README.md) to run them yourself.
+
+## Feedback
+
+**More → Send feedback** opens this repo's issue forms (bug or idea).
 
 ## Updating
 

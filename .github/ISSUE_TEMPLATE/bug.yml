@@ -1,0 +1,30 @@
+name: Something's broken
+description: A page looks wrong, a number is off, or the app did something it shouldn't.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you tapped, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: input
+    id: car
+    attributes:
+      label: Your car
+      placeholder: 1997 Honda Civic EX
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where were you using SUBLEVEL?
+      options:
+        - Phone, added to the home screen
+        - Phone, in the browser
+        - Computer
+        - claude.ai
+  - type: textarea
+    id: shots
+    attributes:
+      label: Screenshots
+      description: Drag them in here. Please don't include API keys or access codes.

@@ -12,7 +12,7 @@ Everything below works from a phone browser. It takes about 15 minutes.
 ## Before you start
 
 - **Accounts:** an Anthropic account and a Cloudflare account. Whoever owns them has to be 18 or older.
-- **Cost:** Cloudflare's free plan covers this (100,000 requests a day). Anthropic charges per use. A full AI car setup is about 15–30¢; a question or estimate is a few cents. You choose the monthly maximum in step 1.
+- **Cost:** Cloudflare's free plan covers this (100,000 requests a day). Anthropic charges per use. A full AI car setup is about 20–40¢; a question or estimate is a few cents. You choose the monthly maximum in step 1.
 
 ## 1. Get an Anthropic API key
 
@@ -22,6 +22,14 @@ Everything below works from a phone browser. It takes about 15 minutes.
 4. **API Keys → Create key.** Name it `SUBLEVEL server` and copy it. Don't paste it anywhere except step 3 below.
 
 ## 2. Put the server on Cloudflare
+
+**Quickest way:** tap this button, sign in to Cloudflare and GitHub, and paste your key from step 1 when it asks for `ANTHROPIC_API_KEY`.
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/jaylikescars1-lab/sublevel/tree/main/worker)
+
+The button copies the server into a new repo in your GitHub account and deploys it from there. Changes made to this repo later won't reach it by themselves. If you'd rather it update whenever this repo changes, use the steps below instead.
+
+**Or connect this repo directly:**
 
 1. Go to **dash.cloudflare.com** and sign up (free).
 2. **Workers & Pages → Create → Import a repository.** Connect GitHub and pick `jaylikescars1-lab/sublevel`.
@@ -77,7 +85,7 @@ The server checks every payment on the blockchain: it has to be real USDC, on So
 
 **How credit is used up**
 
-Each answer is charged from the code's credit by the tokens Claude actually used, at a little above Claude Opus 5.5's list price. Roughly: a full AI car setup is 25–40¢, a question 5–10¢. With the defaults, $3 buys $2.00 of credit, so each sale covers its Anthropic cost with room to spare. When a code runs out, the app tells the person to add more.
+Each answer is charged from the code's credit by the tokens Claude actually used, at a little above Claude Opus 5.5's list price. Roughly: a full AI car setup is 25–50¢, a question 5–10¢. With the defaults, $3 buys $2.00 of credit, so each sale covers its Anthropic cost with room to spare. When a code runs out, the app tells the person to add more.
 
 **Things to know**
 

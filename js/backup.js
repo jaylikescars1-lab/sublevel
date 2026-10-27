@@ -30,19 +30,37 @@
       <div class="seg">${[["simple", "Simple"], ["full", "Everything"]].map(([m, l]) => `<button type="button" data-act="mode-set" data-m="${m}" aria-pressed="${(NS.simple() ? "simple" : "full") === m}">${l}</button>`).join("")}</div>
       <p class="dim" style="font-size:13.5px;margin:8px 0 0">${NS.simple() ? "Garage, build, log, service and money. Everything else is in More." : "Everything, including rank, streaks, quick wins, telemetry and the hunt tab."}</p>
       <div class="lbl" style="margin:18px 0 8px">Your data</div>
-      <div class="infobox"><h4>WHERE IT LIVES</h4><p style="margin:0;color:var(--fg-2);font-size:14.5px">Everything is saved <b style="color:var(--fg)">${esc(NS.where())}</b>.${NS.standalone ? " Nothing is uploaded anywhere. If you delete the app or clear Safari's website data, it's gone, so keep a backup in Files or iCloud Drive." : ""}</p></div>
+      <div class="infobox"><h4>WHERE IT LIVES</h4><p style="margin:0;color:var(--fg-2);font-size:14.5px">Everything is saved <b style="color:var(--fg)">${esc(NS.where())}</b>.${NS.standalone ? " Nothing is uploaded anywhere. If you delete the app or clear Safari's website data, it's gone, so keep a backup in Files or iCloud Drive." : ""}<span id="bk-persist"></span></p></div>
       <div class="grid g2" style="margin-top:14px">
         <div class="stat"><div class="k">Last backup</div><div class="v" style="font-size:20px">${last ? (d === 0 ? "Today" : d + "d ago") : "Never"}</div></div>
         <div class="stat"><div class="k">Photos</div><div class="v" style="font-size:20px">${photoIds(NS.S).length}</div></div>
       </div>
+      ${NS.snapshots ? `<div class="lbl" style="margin:18px 0 8px">Earlier versions on this phone</div><div id="bk-snaps" class="stack" style="gap:6px"><span class="dim" style="font-size:13.5px">Loading…</span></div>
+        <p class="dim" style="font-size:12.5px;margin:6px 0 0">Saved at the start of each day and before every restore. They undo mistakes, but they live on this phone, so they're not a backup.</p>` : ""}
       <div id="bk-msg" class="muted" style="font-size:14px;margin-top:12px"></div>
       <div class="sheet-foot">
         <button class="btn" data-act="backup-import">${icon("box")}Import a backup</button>
         <span class="grow"></span>
         <button class="btn primary" data-act="backup-export">${icon("share")}Export backup</button>
       </div>
-      ${NS.standalone ? `<p class="dim" style="font-size:13px;margin:14px 0 0;text-align:center"><a href="privacy.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Privacy</a></p>` : ""}`);
+      <p class="dim" style="font-size:13px;margin:14px 0 0;text-align:center">${NS.standalone ? `<a href="privacy.html" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Privacy</a> · ` : ""}<a href="${NS.FEEDBACK}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Send feedback</a></p>`);
     if (NS.aiSettingsAfter) NS.aiSettingsAfter();
+    if (NS.snapshots) drawSnaps();
+    if (NS.standalone && navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then((p) => { const el = document.getElementById("bk-persist"); if (el && p) el.textContent = " This phone has marked it as storage to keep."; }).catch(() => {});
+  };
+  async function drawSnaps() {
+    const box = document.getElementById("bk-snaps"); if (!box) return;
+    let list = []; try { list = await NS.snapshots.list(); } catch (e) {}
+    const sum = (raw) => { try { const s = JSON.parse(raw); const vs = Object.values(s.vehicles || {}); const n = vs.reduce((a, v) => a + (v.log || []).length, 0); return `${vs.length} car${vs.length === 1 ? "" : "s"} · ${n} log entr${n === 1 ? "y" : "ies"}`; } catch (e) { return ""; } };
+    const when = (t) => { const d = new Date(t); return `${NS.fmtDate(t.slice(0, 10))} ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`; };
+    box.innerHTML = list.length ? list.map((x) => `<div class="row between card" style="padding:9px 12px;gap:10px"><span style="min-width:0"><b style="font-weight:500">${esc(when(x.t))}</b><span class="dim" style="display:block;font-size:12.5px">${esc(x.reason)} · ${esc(sum(x.data))}</span></span><button class="btn sm" data-act="snap-restore" data-t="${esc(x.t)}">Restore</button></div>`).join("")
+      : '<span class="dim" style="font-size:13.5px">None yet. The first one is saved the next time you change something.</span>';
+  }
+  NS.acts["snap-restore"] = async (el) => {
+    if (!el.classList.contains("armed")) { el.classList.add("armed", "danger"); el.textContent = "Tap again"; return; }
+    el.disabled = true; el.textContent = "Restoring…";
+    const ok = await NS.snapshots.restore(el.dataset.t).catch(() => false);
+    if (!ok) { el.textContent = "Couldn't"; }
   };
 
   NS.acts["backup-export"] = async (el) => {

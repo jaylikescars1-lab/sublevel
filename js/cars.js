@@ -169,7 +169,8 @@ Reply with only the JSON.`;
       let last = -1; sections.forEach(([k], i) => { if (text.includes(`"${k}"`)) last = i; });
       document.querySelectorAll(".ai-steps li").forEach((li, i) => { li.className = i < last ? "done" : i === last ? "on" : ""; });
     };
-    try { return await NS.sample.json(prompt, { schema, onText, signal: ctl.signal, effort: "medium", modelTier: "default" }); }
+    // High effort: these answers become torque specs, fluids and fitment numbers, so accuracy beats speed.
+    try { return await NS.sample.json(prompt, { schema, onText, signal: ctl.signal, effort: "high", modelTier: "default" }); }
     finally { clearInterval(tick); NS._aiCtl = null; }
   }
   NS.acts["ai-cancel"] = () => { if (NS._aiCtl) NS._aiCtl.abort(); NS.closeSheet(); };

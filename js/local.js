@@ -8,13 +8,47 @@
   /* ---------- photos in IndexedDB ---------- */
   let dbp = null;
   const db = () => (dbp ||= new Promise((res, rej) => {
-    const r = indexedDB.open("sublevel", 1);
-    r.onupgradeneeded = () => r.result.createObjectStore("photos");
+    const r = indexedDB.open("sublevel", 2);
+    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains("photos")) d.createObjectStore("photos"); if (!d.objectStoreNames.contains("snaps")) d.createObjectStore("snaps"); };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   }));
   const put = async (id, blob) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction("photos", "readwrite"); t.objectStore("photos").put(blob, id); t.oncomplete = res; t.onerror = () => rej(t.error); }); };
   const loadAll = async () => { const d = await db(); return new Promise((res) => { const req = d.transaction("photos").objectStore("photos").openCursor(); req.onsuccess = () => { const c = req.result; if (c) { NS.photoURL[c.key] = URL.createObjectURL(c.value); c.continue(); } else res(); }; req.onerror = () => res(); }); };
   NS.photoURL = {};
+
+  /* ---------- earlier versions: a copy at the start of each day and before every restore, last 10 kept ---------- */
+  const LS = "sublevel.v1", KEEP = 10;
+  const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction("snaps", mode); const out = fn(t.objectStore("snaps")); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); }); };
+  NS.snapshots = {
+    take: async (reason, data) => {
+      if (data == null) try { data = localStorage.getItem(LS); } catch (e) {}
+      if (!data) return;
+      const t = new Date().toISOString();
+      await tx("readwrite", (st) => st.put({ t, reason, data }, t));
+      const keys = (await tx("readonly", (st) => st.getAllKeys())) || [];
+      if (keys.length > KEEP) await tx("readwrite", (st) => keys.sort().slice(0, keys.length - KEEP).forEach((k) => st.delete(k)));
+    },
+    list: async () => ((await tx("readonly", (st) => st.getAll())) || []).sort((a, b) => (a.t < b.t ? 1 : -1)),
+    restore: async (t) => {
+      const snap = await tx("readonly", (st) => st.get(t)); if (!snap) return false;
+      await NS.snapshots.take("Before restoring an earlier version");
+      localStorage.setItem(LS, snap.data); location.reload(); return true;
+    },
+  };
+  // The first change of each day saves the day's starting point first, so a bad delete or import can be undone.
+  const baseCommit = NS.commit;
+  NS.commit = function (key, opts) {
+    const day = NS.today(); let last = null, saved = null;
+    try { last = localStorage.getItem("sublevel.snapDay"); saved = localStorage.getItem(LS); } catch (e) {}
+    // Only counts once there's a saved garage to copy (a brand-new phone has none until its first change).
+    if (last !== day && saved) { try { localStorage.setItem("sublevel.snapDay", day); } catch (e) {} NS.snapshots.take("Start of " + NS.fmtDate(day), saved).catch(() => {}); }
+    return baseCommit.call(this, key, opts);
+  };
+  NS.commitVeh = (opts) => NS.commit("v:" + NS.veh().id, opts);
+  ["backup-apply", "backup-merge"].forEach((k) => {
+    const orig = NS.acts[k]; if (!orig) return;
+    NS.acts[k] = async (el) => { if (k === "backup-merge" || el.classList.contains("armed")) await NS.snapshots.take(k === "backup-merge" ? "Before merging a backup" : "Before replacing from a backup").catch(() => {}); return orig(el); };
+  });
   NS.img = (id) => (id ? NS.photoURL[id] || "" : "");
 
   /* ---------- replace the claude.ai connections ---------- */
@@ -109,7 +143,13 @@
     sample.limits = async () => ({ maxPromptBytes: 262144, images: { maxCount: 4, mediaTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] } });
     return sample;
   }
+  // The SDK is 200+ KB, so it only loads once AI is actually set up.
+  let sdkP = null;
+  const loadSDK = () => (window.Anthropic ? Promise.resolve() : (sdkP ||= new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = "js/vendor/anthropic-sdk.js"; s.onload = res; s.onerror = () => { sdkP = null; rej(new Error("sdk")); }; document.head.appendChild(s);
+  })));
   NS.connectAI = async () => {
+    if (aiMode()) { try { await loadSDK(); } catch (e) {} }
     NS.sample = aiMode() && window.Anthropic ? makeSample() : null;
     NS.sampleImages = !!NS.sample; NS.downloads = NS.downloads || null;
     NS.render({ quiet: true });
@@ -121,7 +161,7 @@
     const keyRow = `<div class="row" style="margin-top:10px;flex-wrap:nowrap"><input class="input" id="ai-key" type="password" placeholder="sk-ant-…" autocomplete="off" style="flex:1"><button class="btn primary sm" data-act="ai-key-save">Save</button></div>`;
     const what = "set up any car, fill in spec sheets, estimate mods, score listings, read receipts and answer questions";
     let body;
-    if (mode === "key") body = p(`<b class="ok">On.</b> Uses your Anthropic API key, saved only on this phone (it's never in backups). Model: Claude Opus 5.5. A full car setup costs about 15–30¢, a question or estimate a few cents.`) + msg +
+    if (mode === "key") body = p(`<b class="ok">On.</b> Uses your Anthropic API key, saved only on this phone (it's never in backups). Model: Claude Opus 5.5. A full car setup costs about 20–40¢, a question or estimate a few cents.`) + msg +
       `<div class="row" style="margin-top:10px"><button class="btn sm" data-act="ai-test">${NS.icon("spark")}Test it</button><button class="btn sm danger" data-act="ai-key-clear">Remove key</button></div>`;
     else if (mode === "hosted") body = p(`<b class="ok">On.</b> Using SUBLEVEL AI with access code <span class="mono" style="color:var(--fg)">${NS.esc(getCode())}</span>. Model: Claude Opus 5.5.`) +
       `<div id="ai-credit" class="muted" style="font-size:14px;margin-top:6px"></div>` + msg +
@@ -320,11 +360,15 @@
   const installed = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   window.addEventListener("load", () => {
-    let dismissed = false; try { dismissed = localStorage.getItem("sublevel.installHint") === "no"; } catch (e) {}
-    if (!installed && ios && !dismissed) {
+    // In Safari (not installed), a site's saved data can be cleared after a stretch of not opening it. Installed apps keep it.
+    // Once there's a real garage here, a dismissed hint comes back after a week instead of never.
+    let when = null; try { const x = localStorage.getItem("sublevel.installHint"); when = x === "no" ? 0 : x ? +x : null; } catch (e) {}
+    const real = Object.values(NS.S.vehicles).some((v) => !(NS.isSample && NS.isSample(v)));
+    const show = when == null || (real && Date.now() - when > 7 * 864e5);
+    if (!installed && ios && show) {
       const el = document.createElement("div"); el.className = "install";
-      el.innerHTML = `${NS.icon("share")}<span><b>Install SUBLEVEL:</b> tap the Share button in Safari, then <b>Add to Home Screen</b>.</span><button class="iconbtn" aria-label="Dismiss">${NS.icon("x")}</button>`;
-      el.querySelector("button").onclick = () => { el.remove(); try { localStorage.setItem("sublevel.installHint", "no"); } catch (e) {} };
+      el.innerHTML = `${NS.icon("share")}<span>${real ? "<b>Keep your garage safe:</b> Safari can clear a site's saved data if you don't open it for a while. Tap Share, then <b>Add to Home Screen</b>." : "<b>Install SUBLEVEL:</b> tap the Share button in Safari, then <b>Add to Home Screen</b>."}</span><button class="iconbtn" aria-label="Dismiss">${NS.icon("x")}</button>`;
+      el.querySelector("button").onclick = () => { el.remove(); try { localStorage.setItem("sublevel.installHint", String(Date.now())); } catch (e) {} };
       document.body.appendChild(el);
     }
     if (firstRun) setTimeout(() => {

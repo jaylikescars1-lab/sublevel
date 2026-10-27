@@ -1,0 +1,12 @@
+{
+  "name": "sublevel-tests",
+  "private": true,
+  "description": "Checks for the SUBLEVEL phone app: fitment math and the app in a real browser.",
+  "scripts": {
+    "test": "node fit.test.cjs && node app.test.cjs",
+    "test:fit": "node fit.test.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
