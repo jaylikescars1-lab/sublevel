@@ -17,6 +17,7 @@
     timing: obj({ type: { type: "string", enum: ["belt", "chain"] }, interval: str, interference: { type: "string", enum: ["yes", "no", "unknown"] } }),
     wheels: obj({ bolt: str, centerBore: str, lugTorque: str, lugThread: str, stock: obj({ dia: int, width: numb, offset: int, tire: str }) }),
     fitment: obj({ lipOut: int, innerLimit: int, stockGap: int, suspension: { type: "string", enum: ["strut", "double_wishbone", "multilink"] }, stockCamber: numb, bump: int }),
+    fluids: arr(obj({ name: str, spec: str })), torques: arr(obj({ name: str, spec: str })),
     notes: str,
   });
   const CAR = obj({ year: int, make: str, model: str, trim: str, chassis: str, engine: str, color: str, paintHex: str,
@@ -43,7 +44,7 @@ ALREADY DONE / NOTES FROM THE OWNER: ${q.notes || "none"}
 
 Return JSON:
 - car: the exact car. body is coupe, sedan, hatch, wagon, suv or truck. paintHex: a typical factory color for it${q.color ? ` (owner says: ${q.color})` : ""}. valueEstimate: rough private-party value in USD at this mileage, average condition.
-- specs: oil (viscosity spec, capacity with filter, filter), coolant type, spark plugs (type, gap, torque), timing (belt or chain, replacement interval, interference yes/no/unknown), wheels (bolt pattern, center bore, lug torque, lug thread, factory wheel and tire for this trim). fitment, in mm, front corner at stock height: lipOut = hub face out to the fender lip, innerLimit = hub face in to the nearest suspension part, stockGap = top of tire to fender lip, bump = suspension travel from rest to the bump stop; plus suspension = front suspension type, stockCamber = factory front camber in degrees (negative = top leans in).
+- specs: oil (viscosity spec, capacity with filter, filter), coolant type, spark plugs (type, gap, torque), timing (belt or chain, replacement interval, interference yes/no/unknown), wheels (bolt pattern, center bore, lug torque, lug thread, factory wheel and tire for this trim). fitment, in mm, front corner at stock height: lipOut = hub face out to the fender lip, innerLimit = hub face in to the nearest suspension part, stockGap = top of tire to fender lip, bump = suspension travel from rest to the bump stop; plus suspension = front suspension type, stockCamber = factory front camber in degrees (negative = top leans in). fluids: transmission fluid type and capacity, brake fluid, cold tire pressures, valve clearance if adjustable. torques: wheel nuts, oil drain plug, spark plugs, front caliper and bracket bolts, crank pulley bolt, axle nut, each in lb-ft with N·m.
 - knownIssues: 3-6 well-known problems for this platform or engine, each with what to check.
 - fitPresets: 4-5 popular aftermarket wheel setups for this car (diameter, width, offset, tire width tw and aspect ar) with what each needs.${full ? `
 - setup: 10-12 rows for what's on the car now (Engine, Transmission, Suspension, Brakes, Wheels, Tires, Exhaust, Intake, Audio, Interior, Exterior). Stock unless the owner said otherwise.
@@ -209,6 +210,8 @@ Reply with only the JSON.`;
 
   /* ---------- spec sheet (My Build) ---------- */
   const val = (x) => (x == null || x === "" ? "—" : esc(x));
+  // Built-in specs store [name, spec] pairs; AI returns { name, spec } objects.
+  const pairs = (a) => (a || []).map((x) => (Array.isArray(x) ? x : [x.name, x.spec])).filter(([k]) => k);
   function specGrid(v) {
     const sp = v.specs || {}; const w = sp.wheels || {}; const st = w.stock || {};
     const rows = [
@@ -217,9 +220,11 @@ Reply with only the JSON.`;
       ["Spark plugs", sp.plugs ? `${sp.plugs.part} · gap ${sp.plugs.gap} · ${sp.plugs.torque}` : ""],
       ["Timing", sp.timing ? `${sp.timing.type} · ${sp.timing.interval}${sp.timing.interference === "yes" ? " · interference" : ""}` : ""],
       ["Bolt pattern", w.bolt], ["Center bore", w.centerBore], ["Lug nuts", [w.lugThread, w.lugTorque].filter(Boolean).join(" · ")],
-      ["Factory wheel", st.dia ? `${st.dia}x${st.width} ${st.offset >= 0 ? "+" : ""}${st.offset} · ${st.tire}` : ""],
-    ];
-    return `<div class="spec-grid">${rows.map(([k, x]) => `<div><span class="lbl">${k}</span><span>${val(x)}</span></div>`).join("")}</div>${sp.notes ? `<p class="dim" style="font-size:13px;margin:10px 0 0">${esc(sp.notes)}</p>` : ""}`;
+      ["Factory wheel", st.dia ? `${st.dia}x${st.width} ${st.offset >= 0 ? "+" : ""}${st.offset} · ${st.tire}` : NS.isEK(v) ? `${D.fit.stock.dia}x${D.fit.stock.width} +${D.fit.stock.offset} · ${D.fit.stock.tw}/${D.fit.stock.ar}R${D.fit.stock.dia}` : ""],
+    ].concat(pairs(sp.fluids));
+    const tq = pairs(sp.torques);
+    return `<div class="spec-grid">${rows.map(([k, x]) => `<div><span class="lbl">${esc(k)}</span><span>${val(x)}</span></div>`).join("")}</div>
+      ${tq.length ? `<div class="lbl" style="margin:16px 0 8px">Torque specs</div><div class="spec-grid">${tq.map(([k, x]) => `<div><span class="lbl">${esc(k)}</span><span>${val(x)}</span></div>`).join("")}</div>` : ""}${sp.notes ? `<p class="dim" style="font-size:13px;margin:10px 0 0">${esc(sp.notes)}</p>` : ""}`;
   }
   NS.specSheetHTML = function (v) {
     const sp = v.specs || {}; const has = !!(sp.oil || sp.wheels || sp.hp);
@@ -227,7 +232,7 @@ Reply with only the JSON.`;
       <div><div class="eyebrow">SPEC SHEET</div><p class="muted" style="margin:6px 0 0;font-size:14px">Fluids, plugs, timing, bolt pattern, lug torque, factory wheel and known issues for this car.${NS.aiReady() ? " Claude can fill it in." : ""}</p></div>
       <div class="row">${NS.aiReady() ? `<button class="btn primary sm" data-act="spec-ai">${icon("spark")}Fill in with AI</button>` : ""}<button class="btn sm" data-act="spec-edit">${icon("edit")}Enter by hand</button></div></div></section>`;
     return `<section class="section"><details class="spec-sheet"${NS.ui.specOpen ? " open" : ""}>
-      <summary><div><div class="eyebrow">SPEC SHEET${sp.ai ? " · AI " + NS.fmtDate(sp.ai) : ""}</div><div class="spec-line">${esc([v.engine, sp.hp ? sp.hp + " HP" : "", sp.drivetrain, sp.wheels && sp.wheels.bolt].filter(Boolean).join(" · ") || "Tap to see")}</div></div>${icon("chev")}</summary>
+      <summary><div><div class="eyebrow">SPEC SHEET${sp.src ? " · " + esc(sp.src.toUpperCase()) : sp.ai ? " · AI " + NS.fmtDate(sp.ai) : ""}</div><div class="spec-line">${esc([v.engine, sp.hp ? sp.hp + " HP" : "", sp.drivetrain, sp.wheels && sp.wheels.bolt].filter(Boolean).join(" · ") || "Tap to see")}</div></div>${icon("chev")}</summary>
       ${specGrid(v)}
       ${(sp.knownIssues || []).length ? `<div class="infobox" style="margin-top:12px"><h4>KNOWN ISSUES</h4><ul>${sp.knownIssues.map((k) => `<li><span class="tag ${k.severity === "high" ? "bad" : k.severity === "med" ? "warn" : ""}">${esc((k.severity || "").toUpperCase())}</span> <b style="color:var(--fg)">${esc(k.title)}.</b> ${esc(k.detail)}</li>`).join("")}</ul></div>` : ""}
       <div class="row" style="margin-top:12px"><button class="btn sm" data-act="spec-edit">${icon("edit")}Edit specs</button>${NS.aiReady() ? `<button class="btn sm" data-act="spec-ai">${icon("spark")}Refresh with AI</button>` : ""}</div>
@@ -241,7 +246,7 @@ Reply with only the JSON.`;
     try {
       const r = await runWithProgress(NS.vehLabel(v), setupPrompt(q, false), SPECS_ONLY, SECTIONS.slice(0, 4), 5000);
       const c = r.car || {};
-      v.specs = { ...(v.specs || {}), ...r.specs, body: c.body || (v.specs && v.specs.body), drivetrain: c.drivetrain, transmission: c.transmission, hp: c.hp, torque: c.torque, weightLb: c.weightLb, knownIssues: r.knownIssues || [], fitPresets: r.fitPresets || [], ai: NS.today() };
+      v.specs = { ...(v.specs || {}), ...r.specs, body: c.body || (v.specs && v.specs.body), drivetrain: c.drivetrain, transmission: c.transmission, hp: c.hp, torque: c.torque, weightLb: c.weightLb, knownIssues: r.knownIssues || [], fitPresets: r.fitPresets || [], ai: NS.today(), src: undefined };
       if (!v.chassis && c.chassis) v.chassis = c.chassis; if (!v.engine && c.engine) v.engine = c.engine;
       NS.ui.specOpen = true; NS.closeSheet(); NS.commitVeh(); NS.toast("Spec sheet updated");
     } catch (e) { if (e && e.code === "cancelled") return; NS.closeSheet(); NS.toast(aiError(e)); }

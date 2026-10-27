@@ -51,7 +51,7 @@
         ${m.mod ? `<button class="btn" data-act="finish-mod" data-id="${m.mod.id}">${icon("check")}Done, log it</button>` : m.svc ? `<button class="btn" data-act="log-new" data-preset="${m.svc}">${icon("check")}Done, log it</button>` : m.go ? `<button class="btn" data-act="go" data-r="${m.go}">${icon("clock")}Open schedule</button>` : ""}
         ${m.mod && !NS.simple() ? `<span class="px vio" style="margin-left:auto">+${NS.modXP(m.mod) + 25} XP</span>` : ""}
       </div>
-      ${moves.length > 1 ? `<div class="then"><span class="px dim">THEN</span>${moves.slice(1, 3).map((x, i) => `<button data-act="${x.mod ? "open-mod" : x.svc || x.go ? "go" : "noop"}" data-r="service" data-id="${x.mod ? x.mod.id : ""}"><span class="mono">0${i + 2}</span><span>${esc(x.title)} <span class="dim">${x.cost ? money(x.cost) : ""}</span></span></button>`).join("")}</div>` : ""}
+      ${moves.length > 1 ? `<div class="then"><span class="px dim">THEN</span>${moves.slice(1, 3).map((x, i) => `<button data-act="${x.mod ? "open-mod" : x.svc || x.go ? "go" : "noop"}" data-r="service" data-id="${x.mod ? x.mod.id : ""}"><span class="mono">0${i + 2}</span><span>${esc(x.then || x.title)} <span class="dim">${x.cost ? money(x.cost) : ""}</span></span></button>`).join("")}</div>` : ""}
     </section>`;
   }
 
@@ -129,7 +129,7 @@
           <div class="hero-sub"><span class="tag solid">${esc(v.engine)}</span><span class="live"><i></i>BUILD STATUS: ${esc(v.status || "IN PROGRESS")}</span></div>
           ${NS.thesisHTML(v)}
         </div>
-        <div class="ring-wrap" title="Overall build"><div class="ring" style="--p:${pct}"></div><div class="ring-v"><span>${pct}<span style="font-size:10px">%</span></span></div></div>
+        <div class="ring-wrap" title="Overall build"><div class="ring" style="--p:${pct}"></div><div class="ring-v"><span>${pct}<span style="font-size:11px">%</span></span></div></div>
       </div>
       ${heroStage(v)}
       <div class="hero-stats">

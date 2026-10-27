@@ -155,7 +155,7 @@
     const wells = `<g transform="translate(0 ${bodyDy.toFixed(2)})">${well(FX)}${well(RX)}</g>`;
     const glow = o.glow === false ? "" : `<ellipse cx="507" cy="${GROUND + 2}" rx="470" ry="26" fill="url(#${id}-pool)"/>`;
     const refl = o.reflection === false ? "" : `<g transform="translate(0 ${GROUND * 2 + 2}) scale(1 -1)" opacity=".16" mask="url(#${id}-fade)">${wells}${wheels}${car}</g>`;
-    const labels = o.labels ? `<g font-family="JetBrains Mono, monospace" font-size="11" fill="#716c84" letter-spacing="1">
+    const labels = o.labels ? `<g font-family="JetBrains Mono, monospace" font-size="18" fill="#8a86a0" letter-spacing="1">
         <line x1="${FX}" y1="${GROUND + 24}" x2="${RX}" y2="${GROUND + 24}" stroke="#48445a" stroke-dasharray="2 4"/>
         <text x="${(FX + RX) / 2}" y="${GROUND + 40}" text-anchor="middle">WB 2620 MM</text>
         <text x="${FX}" y="${GROUND + 40}" text-anchor="middle">F</text><text x="${RX}" y="${GROUND + 40}" text-anchor="middle">R</text></g>` : "";

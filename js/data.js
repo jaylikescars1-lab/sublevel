@@ -13,19 +13,62 @@ window.NS_DATA = {
   aesthetics: ["Y2K", "JDM", "GRUNGE", "CYBER", "OEM+"],
   worthLabels: ["Not rated", "Regret", "Meh", "It's fine", "Good call", "Best money spent"],
 
-  /* Service schedule. Last-done comes from log entries tagged with the id, else from `known`. */
+  /* Service schedule. Last-done comes from log entries tagged with the id, else from `known`.
+     Intervals are Honda's for the 1996–2000 Civic (Service Manual, Maintenance Schedule for 1997 Model, pp. 4-8 to 4-11):
+     factory.normal / factory.severe are [miles, months]. everyMi/everyMo default to severe, the safer reading for an old car.
+     Other cars start from these as a general template and get their own list from AI. */
   service: [
-    { id: "oil", name: "Oil + filter", everyMi: 5000, everyMo: 6, cost: 40, diff: 2, job: "oil" },
-    { id: "rotation", name: "Tire rotation", everyMi: 5000, everyMo: 6, cost: 0, diff: 2 },
-    { id: "airfilter", name: "Air filter", everyMi: 15000, everyMo: 24, cost: 20, diff: 1 },
-    { id: "brakefluid", name: "Brake fluid flush", everyMi: 30000, everyMo: 36, cost: 15, diff: 4, job: "brakes", safety: true },
-    { id: "plugs", name: "Spark plugs", everyMi: 30000, everyMo: 36, cost: 45, diff: 2, job: "plugs" },
-    { id: "mtf", name: "Transmission fluid", everyMi: 30000, everyMo: 36, cost: 35, diff: 3 },
-    { id: "valves", name: "Valve adjustment", everyMi: 30000, everyMo: 24, cost: 20, diff: 5 },
-    { id: "coolant", name: "Coolant", everyMi: 60000, everyMo: 60, cost: 40, diff: 3, job: "bleed" },
-    { id: "belts", name: "Accessory belts", everyMi: 60000, everyMo: 60, cost: 30, diff: 3 },
-    { id: "timing", name: "Timing belt + water pump", everyMi: 105000, everyMo: 84, cost: 450, diff: 8, job: "timing", crit: true },
+    { id: "oil", name: "Oil + filter", everyMi: 3750, everyMo: 6, factory: { normal: [7500, 12], severe: [3750, 6] }, cost: 40, diff: 2, job: "oil",
+      note: "Honda's normal schedule changes the filter every other oil change. Doing it every time costs about $8." },
+    { id: "brakes", name: "Brake inspection", everyMi: 7500, everyMo: 6, factory: { normal: [15000, 12], severe: [7500, 6] }, cost: 0, diff: 2, job: "brakes", safety: true,
+      note: "Pads, rotors, calipers, hoses and the parking brake (6 to 9 clicks). Pads are 8.5–9.5 mm new; replace at 1.6 mm." },
+    { id: "rotation", name: "Tire rotation", everyMi: 7500, everyMo: 12, factory: { normal: [7500, 12], severe: [7500, 12] }, cost: 0, diff: 2,
+      note: "Check pressures monthly: 30 psi front, 29 rear, cold." },
+    { id: "airfilter", name: "Air filter", everyMi: 15000, everyMo: 12, factory: { normal: [30000, 24], severe: [15000, 12] }, cost: 20, diff: 1,
+      note: "Severe interval is for dusty roads. Otherwise every 30,000 mi is fine." },
+    { id: "plugs", name: "Spark plugs", everyMi: 30000, everyMo: 24, factory: { normal: [30000, 24], severe: [30000, 24] }, cost: 45, diff: 2, job: "plugs" },
+    { id: "belts", name: "Drive belts (inspect)", everyMi: 30000, everyMo: 24, factory: { normal: [30000, 24], severe: [30000, 24] }, cost: 0, diff: 2,
+      note: "Check for cracks and tension. Replace when cracked or glazed, about $30 for both." },
+    { id: "valves", name: "Valve clearance", everyMi: 30000, everyMo: 24, factory: { normal: [30000, 24], severe: [30000, 24] }, cost: 20, diff: 5,
+      note: "Honda lists one check at 30,000 mi, then whenever they tick. On a high-mileage D16, checking every 30,000 mi is cheap insurance. Cold: intake 0.18–0.22 mm, exhaust 0.23–0.27 mm." },
+    { id: "coolant", name: "Coolant", everyMi: 30000, everyMo: 24, factory: { normal: [30000, 24], severe: [30000, 24] }, cost: 40, diff: 3, job: "bleed",
+      note: "Honda: first at 45,000 mi, then every 30,000 mi or 2 years." },
+    { id: "mtf", name: "Transmission fluid", everyMi: 30000, everyMo: 24, factory: { normal: [90000, 72], severe: [30000, 24] }, cost: 35, diff: 3,
+      note: "Honda MTF for manuals (1.9 qt). Automatics: Honda ATF, 2.9 qt drain and fill." },
+    { id: "brakefluid", name: "Brake fluid flush", everyMi: 45000, everyMo: 36, factory: { normal: [45000, 36], severe: [45000, 36] }, cost: 15, diff: 4, job: "brakes", safety: true },
+    { id: "timing", name: "Timing belt + water pump", everyMi: 105000, everyMo: 84, factory: { normal: [105000, 84], severe: [105000, 84] }, cost: 160, diff: 8, job: "timing", crit: true,
+      note: "Every 60,000 mi if the car regularly sees over 110°F or under −20°F. A snapped belt bends valves." },
   ],
+  /* What the defaults were before the factory schedule, so untouched intervals can move and edited ones stay put. */
+  serviceOld: { oil: [5000, 6], rotation: [5000, 6], airfilter: [15000, 24], brakefluid: [30000, 36], plugs: [30000, 36], mtf: [30000, 36], valves: [30000, 24], coolant: [60000, 60], belts: [60000, 60], timing: [105000, 84] },
+  serviceSrc: "Honda Civic 1996–2000 Service Manual, Maintenance Schedule for 1997 Model (pp. 4-8 to 4-11)",
+  severeList: ["Trips under 5 miles, or under 10 miles in freezing weather", "Temperatures over 90°F", "Lots of idling or stop-and-go traffic", "Towing, a roof carrier or mountain driving", "Muddy, dusty or salted roads"],
+
+  /* Factory numbers for the 1996–2000 Civic with the D16Y8 (EX), from the Honda service manual unless noted. */
+  ekSpecs: {
+    src: "Honda service manual", body: "coupe", drivetrain: "FWD", transmission: "5-speed manual or 4-speed automatic", hp: 127, torque: 107,
+    oil: { spec: "5W-30, API SJ or newer (10W-30 if it never drops below 20°F)", capacity: "3.5 US qt (3.3 L) with filter", filter: "Honda 15400-PLM-A02 or equivalent" },
+    coolant: "Honda Type 2 coolant: 4.0 qt (3.8 L) to change, 4.4 qt (4.2 L) whole system",
+    plugs: { part: "NGK ZFR5F-11 or Denso KJ16CR-L11", gap: "1.0–1.1 mm (0.039–0.043 in)", torque: "13 lb-ft (18 N·m)" },
+    timing: { type: "belt", interval: "105,000 mi or 7 years (60,000 mi in extreme heat or cold)", interference: "yes" },
+    wheels: { bolt: "4x100", centerBore: "56.1 mm", lugThread: "M12x1.5", lugTorque: "80 lb-ft (108 N·m)" },
+    fluids: [["Manual trans", "Honda MTF, 1.9 qt (1.8 L)"], ["Automatic trans", "Honda ATF (DW-1), 2.9 qt (2.7 L) drain and fill"], ["Brake fluid", "DOT 3"],
+      ["Tire pressure", "30 psi front, 29 psi rear, cold (door placard wins)"], ["Valve clearance", "Cold: intake 0.18–0.22 mm, exhaust 0.23–0.27 mm"], ["Idle", "670 ± 50 rpm (manual, in neutral)"]],
+    torques: [["Wheel nuts", "80 lb-ft (108 N·m)"], ["Oil drain bolt, new washer", "29 lb-ft (39 N·m)"], ["Spark plugs", "13 lb-ft (18 N·m)"],
+      ["Crank pulley bolt", "14 lb-ft (20 N·m) + 90°. No impact gun"], ["Timing belt adjusting bolt", "33 lb-ft (44 N·m)"], ["Valve cover nuts", "7.2 lb-ft (9.8 N·m)"],
+      ["Front caliper mounting bolts", "80 lb-ft (108 N·m)"], ["Front caliper bolt", "24 lb-ft (32 N·m); 20 lb-ft (26 N·m) on the 2056-type caliper"],
+      ["Rotor retaining screws", "7 lb-ft (9.8 N·m)"], ["Front axle spindle nut", "134 lb-ft (181 N·m)"], ["Manual trans drain / fill plug", "29 / 33 lb-ft (39 / 44 N·m)"]],
+    knownIssues: [
+      { title: "Distributor igniter and coil", detail: "The igniter and coil live inside the distributor and fail with age: stalling or no-start when hot. Oil inside the cap means the distributor O-ring is leaking.", severity: "high" },
+      { title: "PGM-FI main relay", detail: "Cracked solder joints cause a no-start when hot that fixes itself once it cools. Resolder it or replace it.", severity: "med" },
+      { title: "Oil leaks", detail: "Valve cover gasket, distributor O-ring and oil pan gasket. Oil in the spark plug wells means the valve cover gasket.", severity: "med" },
+      { title: "Rust", detail: "Rear wheel arches and rocker panels. Check behind the rear wheels and under the side skirts.", severity: "med" },
+      { title: "Timing belt history", detail: "This is an interference engine: if the belt snaps, valves bend. No receipt means treat it as due.", severity: "high" },
+      { title: "4-speed automatic", detail: "Automatics are the weak link. Use only Honda ATF and change it on schedule. Doesn't apply to the manual.", severity: "med" },
+    ],
+    notes: "Factory numbers for the 1996–2000 Civic EX (D16Y8) from Honda's service manual. Tire pressure from tire-maker data; your door placard is the final word.",
+  },
+
   serviceKnown: {
     "civic-97": {
       timing: { mi: 162300, date: "2023-05-12", note: "Previous owner's receipt" },
@@ -47,10 +90,14 @@ window.NS_DATA = {
     stockGap: 52,     // tire tread to fender lip at stock height
     suspension: "double_wishbone", stockCamber: 0, bump: 75,  // EK front: ~0° factory camber, ~3 in of bump travel
     // lipOut and innerLimit are calibrated so owner-reported EK setups come out right (see fit.js)
+    // Rear: Honda's -1° factory rear camber (service manual 18-4); lip, fold and gap fitted to owner reports
+    // (16x7 +42 and 15x7 +40 clear stock, 15x8 +25 205/50 sits at the edge even rolled, rear wants rolling before the front).
+    // Rear inner room isn't calibrated: owners hit the front strut first, so the rear gets a little more space than the front.
+    rear: { lipOut: 68, innerLimit: 170, stockGap: 55, stockCamber: -1, flange: 12, bump: 75 },
     presets: [
       { n: "15x7 +38", dia: 15, width: 7, offset: 38, tw: 205, ar: 50, drop: 1.5, fenders: "stock", note: "The common no-roll setup. Clears a stock lip at a 1.5 in drop." },
       { n: "16x7 +40", dia: 16, width: 7, offset: 40, tw: 205, ar: 45, drop: 1, fenders: "stock", note: "Classic 16s. Fits at a mild drop with no fender work." },
-      { n: "15x8 +28", dia: 15, width: 8, offset: 28, tw: 195, ar: 50, drop: 1.5, fenders: "stock", note: "Mild stretch. Clears a stock lip by a hair, so roll the fenders to be safe." },
+      { n: "15x8 +28", dia: 15, width: 8, offset: 28, tw: 195, ar: 50, drop: 1.5, fenders: "stock", note: "Mild stretch. The front clears a stock lip by a hair; the rear needs rolling at this drop." },
       { n: "16x8 +22", dia: 16, width: 8, offset: 22, tw: 215, ar: 40, drop: 0, fenders: "stock", note: "Aggressive. Pokes at stock height and rubs at full bump." },
       { n: "15x8 +15", dia: 15, width: 8, offset: 15, tw: 195, ar: 45, drop: 2.5, fenders: "rolled", note: "Stance. Needs pulled fenders and real camber." },
       { n: "Stock 14x5.5 +45", dia: 14, width: 5.5, offset: 45, tw: 185, ar: 65, note: "Factory EX setup." },
@@ -155,7 +202,7 @@ window.NS_DATA = {
   diy: [
     { id: "oil", title: "Change oil", diff: 2, time: "45 min", tags: ["maintenance", "beginner", "engine"],
       tools: ["17mm wrench or socket", "Oil filter wrench", "Drain pan", "Funnel", "Ramps or jack + stands", "Gloves"],
-      parts: ["About 3.5 qt of the oil weight your manual or oil cap calls for", "Oil filter", "New 14mm drain plug crush washer"],
+      parts: ["Oil: 3.5 qt of 5W-30 on the D16Y8 (your spec sheet has other engines)", "Oil filter (Honda 15400-PLM-A02 fits the D16Y8)", "New 14 mm drain bolt washer"],
       steps: [
         "Drive for five minutes so the oil is warm, not hot.",
         "Get the front up on ramps or stands. Never work under a car held up only by a jack.",
@@ -163,7 +210,7 @@ window.NS_DATA = {
         "Pan under the drain plug. Remove the plug and let it drain fully, about 10 minutes.",
         "Remove the old filter. Make sure its rubber gasket came off with it.",
         "Wipe a film of new oil on the new filter's gasket. Spin it on hand-tight plus about 3/4 turn.",
-        "Reinstall the drain plug with a new crush washer. Snug it, about 29 lb-ft. Do not crank on it.",
+        "Reinstall the drain bolt with a new washer and torque it: 29 lb-ft (39 N·m) on the D16Y8. Do not crank on it.",
         "Fill about 3 qt, start the engine for 30 seconds, shut off, wait two minutes, then top up to the full mark.",
         "Check for drips under the filter and plug. Log the mileage.",
       ],
@@ -179,9 +226,9 @@ window.NS_DATA = {
         "Pull one plug wire at a time by the boot, not the wire. Keep the order straight.",
         "Blow out the plug well so dirt doesn't fall into the cylinder.",
         "Remove the old plug and read it: tan is healthy, black is rich, oily is a ring or valve seal issue, white is lean or hot.",
-        "Check the new plug's gap, about 1.0–1.1 mm. Adjust gently by the ground strap.",
+        "Check the new plug's gap: 1.0–1.1 mm (0.039–0.043 in). Adjust gently by the ground strap.",
         "Thread the new plug in by hand for several turns. Use a piece of rubber hose if your fingers can't reach.",
-        "Torque to spec, around 13 lb-ft. Light dab of dielectric grease inside the boot.",
+        "Torque to 13 lb-ft (18 N·m). Light dab of dielectric grease inside the boot.",
         "Repeat one cylinder at a time. Start it and listen for a smooth idle.",
       ],
       mistakes: ["Cross-threading the plug by starting it with a ratchet.", "Mixing up plug wires (firing order is 1-3-4-2).", "Overtorquing into an aluminum head."],
@@ -199,8 +246,8 @@ window.NS_DATA = {
         "Remove the crank pulley (the bolt is extremely tight, so use a holding tool), then the lower timing cover.",
         "Loosen the tensioner, remove the old belt. Replace the water pump and tensioner now.",
         "Install the new belt counter-clockwise from the crank: crank, idler/water pump, cam, tensioner. Keep the tight side tight.",
-        "Set tension, then rotate the engine by hand two full turns. Re-check every mark lines up.",
-        "Reassemble. Torque the crank bolt to factory spec. It's well over 100 lb-ft, so look up the exact number for your engine.",
+        "Set tension, then rotate the engine by hand two full turns. Re-check every mark lines up. Tighten the tensioner adjusting bolt to 33 lb-ft (44 N·m).",
+        "Reassemble. Crank pulley bolt on the D16Y8: oil the threads, torque to 14 lb-ft (20 N·m), then turn it another 90°. Never use an impact gun on it. Valve cover nuts: 7.2 lb-ft (9.8 N·m).",
         "Refill and bleed coolant. Start it and watch for leaks.",
       ],
       mistakes: ["Turning the engine backwards.", "Not re-checking marks after two full rotations.", "Reusing the old tensioner and water pump to save $60."],
@@ -214,11 +261,11 @@ window.NS_DATA = {
         "Loosen lugs on the ground, then lift and set the car on stands. Wheels off.",
         "Remove the two caliper slide bolts (12mm). Hang the caliper with a zip tie. Never let it dangle by the hose.",
         "Remove the pads, then the two caliper bracket bolts (17mm).",
-        "Remove the rotor screws with an impact driver (they're always seized), then the rotor. Tap the hat if it's stuck.",
+        "Remove the rotor screws with an impact driver (they're always seized), then the rotor. Tap the hat if it's stuck. Measure the pads: 8.5–9.5 mm new, replace at 1.6 mm.",
         "Wire-brush the hub face and bracket pad slots. Clean new rotors with brake cleaner.",
-        "Install rotor and bracket. Torque bracket bolts to spec. Fit new pad clips and grease only the contact points and slide pins.",
+        "Install the rotor (retaining screws 7 lb-ft) and bracket. Bracket bolts: 80 lb-ft (108 N·m) on the EK. Fit new pad clips and grease only the contact points and slide pins.",
         "Compress the caliper piston slowly. Watch the brake fluid reservoir so it doesn't overflow.",
-        "Install pads and caliper. Torque slide bolts. Wheels on, lugs to 80 lb-ft in a star pattern.",
+        "Install pads and caliper. Caliper bolts: 24 lb-ft (32 N·m), or 20 lb-ft (26 N·m) on the 2056-type caliper. Wheels on, lugs to 80 lb-ft (108 N·m) in a star pattern.",
         "Pump the pedal until it's firm before moving the car. Then bed in the pads: several 35 to 5 mph stops without fully stopping.",
       ],
       mistakes: ["Driving off before pumping the pedal. The first press goes to the floor.", "Getting grease or brake cleaner residue on pad faces.", "Not cleaning rust off the hub face, which causes runout and pulsing.", "Twisting the brake hose."],
@@ -241,20 +288,19 @@ window.NS_DATA = {
       wrong: ["Air pocket left in the system → overheating within minutes."],
       stop: ["The temp gauge climbs past the middle after bleeding.", "Coolant in the oil."] },
 
-    { id: "bleed", title: "Bleed cooling system", diff: 3, time: "45 min", tags: ["cooling", "beginner"],
-      tools: ["Spill-free funnel", "10mm or 12mm wrench (bleeder bolt)", "Rag"],
-      parts: ["Honda Type 2 coolant (premixed)"],
+    { id: "bleed", title: "Refill and bleed coolant", diff: 3, time: "45 min", tags: ["cooling", "beginner"],
+      tools: ["Spill-free funnel (optional, makes it easier)", "Pliers", "Drain pan", "Rag"],
+      parts: ["Honda Type 2 coolant, premixed 50/50 (about 4 qt on the D16Y8)", "New washer for the block drain bolt (if you drained the block)"],
       steps: [
-        "Engine cold. Fit the spill-free funnel to the radiator neck and fill it partway.",
-        "Find the bleeder bolt near the upper coolant outlet. Open it until coolant comes out with no bubbles, then close it.",
-        "Heater on max hot, fan low.",
-        "Start the engine. Let it idle with the funnel on. Bubbles will rise as the thermostat opens.",
-        "Gently squeeze the upper radiator hose to push air out.",
-        "Keep going until the radiator fan cycles on twice and the bubbles stop.",
-        "Plug the funnel, remove it, cap the radiator. Fill the overflow tank to the line.",
-        "Re-check the level cold the next morning.",
+        "Engine and radiator cool to the touch. Heater temperature on max hot.",
+        "Remove the radiator cap. Drain from the radiator drain plug. For a full change, also remove the block drain bolt, then refit it with a new washer and a little liquid gasket on the threads.",
+        "Drain and refill the overflow reservoir to the MAX mark.",
+        "Fill the radiator to the base of the filler neck with 50/50 coolant. Set the cap on loosely, or use a spill-free funnel.",
+        "Start the engine and let it warm up until the radiator fan comes on at least twice.",
+        "Top up to the base of the filler neck as air works out, then tighten the cap.",
+        "Run it again and check for leaks. Re-check the reservoir cold the next morning.",
       ],
-      mistakes: ["Opening the radiator cap on a hot engine.", "Stopping before the fan cycles: the air is still in there.", "Mixing coolant types."],
+      mistakes: ["Opening the radiator cap on a hot engine.", "Stopping before the fan cycles twice: the air is still in there.", "Mixing coolant brands, or adding rust inhibitors. Honda says don't.", "Running more than 60% antifreeze. It cools worse, not better."],
       wrong: ["Trapped air → heater blows cold and the engine overheats."],
       stop: ["Constant bubbles that never stop, or coolant pushing out of the overflow. That points to a head gasket. Get a combustion leak test."] },
 

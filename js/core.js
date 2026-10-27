@@ -74,19 +74,34 @@
   if (!S || !S.vehicles || !S.meta) S = clone(window.NS_SEED);
   NS.S = S;
 
+  /* The 1996–2000 Civic (EK coupe/hatch, EJ coupe, EM Si): Honda's schedule, specs and calibrated fitment apply. */
+  NS.isEK = (v) => /^(EK|EJ|EM)\d?$/i.test((v && v.chassis) || "") || (/honda/i.test((v && v.make) || "") && /^D16Y[578]\b/i.test((v && v.engine) || ""));
   /* Fill in fields newer versions added, without writing anything until the next real edit. */
   NS.migrate = function () {
     for (const v of Object.values(S.vehicles)) {
       if (!Array.isArray(v.service)) {
         const known = D.serviceKnown[v.id] || {};
         v.service = D.service.map((x) => ({ id: x.id, everyMi: x.everyMi, everyMo: x.everyMo, known: known[x.id] || null }));
+        if (NS.isEK(v)) { v.driving = "severe"; v.svcVer = 2; }
       }
+      if (NS.isEK(v) && (v.svcVer || 0) < 2) factorySchedule(v);
+      if (NS.isEK(v) && !(v.specs && v.specs.oil)) v.specs = { ...clone(D.ekSpecs), ...(v.specs || {}) };
       v.log = v.log || []; v.expenses = v.expenses || []; v.mods = v.mods || [];
     }
     S.meta = S.meta || {}; S.meta.learned = S.meta.learned || [];
     S.hunt = S.hunt || { items: [] }; S.inventory = S.inventory || { items: [] }; S.style = S.style || { items: [] };
     S.checklist = S.checklist || { active: "adhoc", marks: {} };
   };
+  /* Move intervals still at the old app defaults to Honda's factory schedule; anything the owner edited stays. */
+  function factorySchedule(v) {
+    v.driving = v.driving || "severe";
+    v.service.forEach((it) => {
+      const def = D.service.find((x) => x.id === it.id), old = D.serviceOld[it.id];
+      if (def && def.factory && old && it.everyMi === old[0] && it.everyMo === old[1]) [it.everyMi, it.everyMo] = def.factory[v.driving];
+    });
+    if (!v.service.some((x) => x.id === "brakes")) { const b = D.service.find((x) => x.id === "brakes"); v.service.splice(1, 0, { id: "brakes", everyMi: b.factory[v.driving][0], everyMo: b.factory[v.driving][1], known: null }); }
+    v.svcVer = 2;
+  }
   NS.migrate();
 
   NS.veh = () => S.vehicles[S.meta.active] || Object.values(S.vehicles)[0];
@@ -337,8 +352,10 @@
   };
 
   NS.toast = function (msg) {
-    const t = $("#toast"); t.innerHTML = ""; const d = document.createElement("div"); d.textContent = msg; t.appendChild(d);
-    clearTimeout(NS._tt); NS._tt = setTimeout(() => (t.innerHTML = ""), 2500);
+    // Long enough to read: about 60 ms a character, between 2.4 and 7 seconds.
+    const ms = Math.min(7000, Math.max(2400, String(msg).length * 60));
+    const t = $("#toast"); t.setAttribute("role", "status"); t.innerHTML = ""; const d = document.createElement("div"); d.textContent = msg; d.style.animationDuration = ms + "ms"; t.appendChild(d);
+    clearTimeout(NS._tt); NS._tt = setTimeout(() => (t.innerHTML = ""), ms + 100);
   };
 
   /* ---------- sheets + generic form ---------- */
@@ -357,12 +374,13 @@
   NS.sheetHead = (eyebrow, title) => `<div class="sheet-head"><div><div class="eyebrow">${esc(eyebrow)}</div><div class="h3" style="margin-top:4px">${esc(title)}</div></div><button class="iconbtn" data-act="close-sheet" aria-label="Close">${NS.icon("x")}</button></div>`;
 
   /* fields: [{k, l, t:'text|textarea|number|money|date|select|range|list|color|photos|check|seg', o:options, full, min, max, step, ph}] */
-  NS.form = function ({ eyebrow = "EDIT", title, fields, value = {}, onSave, onDelete, saveLabel = "Save" }) {
+  NS.form = function ({ eyebrow = "EDIT", title, intro = "", fields, value = {}, onSave, onDelete, saveLabel = "Save" }) {
     const v = clone(value);
     const state = { photos: {} };
     const fid = (k) => "f_" + k;
     const opt = (o) => (typeof o === "string" ? { v: o, l: o } : o);
     const field = (f) => {
+      if (f.t === "note") return `<div class="field full form-note">${f.html}</div>`;
       const val = v[f.k];
       const cls = f.full || ["textarea", "list", "photos", "seg", "range", "check"].includes(f.t) ? "field full" : "field";
       let input = "";
@@ -388,6 +406,7 @@
       return `<div class="${cls}">${lab}${input}</div>`;
     };
     const html = NS.sheetHead(eyebrow, title) +
+      (intro ? `<div class="form-intro">${intro}</div>` : "") +
       `<form id="ns-form" class="form-grid" autocomplete="off">${fields.map(field).join("")}</form>` +
       `<div class="sheet-foot">${onDelete ? `<button class="btn danger" data-act="form-del">${NS.icon("trash")}Delete</button>` : ""}<span class="grow"></span><button class="btn ghost" data-act="close-sheet">Cancel</button><button class="btn primary" data-act="form-save">${esc(saveLabel)}</button></div>`;
     NS.sheet(html, { focus: true });
@@ -414,7 +433,7 @@
       const el = $("#f_" + f.k);
       if (!el && f.t !== "photos") continue;
       switch (f.t) {
-        case "number": case "money": case "range": out[f.k] = el.value === "" ? 0 : Number(el.value); break;
+        case "number": case "money": case "range": out[f.k] = el.value === "" ? (f.blank ? null : 0) : Number(el.value); break;
         case "list": out[f.k] = el.value.split("\n").map((s) => s.trim()).filter(Boolean); break;
         case "check": out[f.k] = el.checked; break;
         case "seg": out[f.k] = el.dataset.val; break;
@@ -471,7 +490,10 @@
     const susp = fit.suspension || (builtin || !st ? D.fit.suspension : "strut");
     return { stock, lipOut: +fit.lipOut || D.fit.lipOut, innerLimit: +fit.innerLimit || D.fit.innerLimit, stockGap: +fit.stockGap || D.fit.stockGap,
       suspension: susp, stockCamber: fit.stockCamber != null && fit.stockCamber !== "" ? +fit.stockCamber : builtin || !st ? D.fit.stockCamber : -0.5, bump: +fit.bump || D.fit.bump,
-      presets, tires: D.fit.tires, own: !!st };
+      presets, tires: D.fit.tires, own: !!st,
+      // Rear: the calibrated EK numbers, or for other cars an estimate from the front (lip a little further in, -1° camber).
+      rear: fit.rear ? { ...(builtin || !st ? D.fit.rear : {}), ...fit.rear } : builtin || !st ? D.fit.rear : { lipOut: (+fit.lipOut || D.fit.lipOut) - 6, innerLimit: +fit.innerLimit || D.fit.innerLimit, stockGap: (+fit.stockGap || D.fit.stockGap) + 3, stockCamber: -1, flange: 12, bump: +fit.bump || D.fit.bump },
+      rearEst: !(builtin || !st) && !fit.rear, measured: fit.measured || null };
   };
 
   /* Service schedule status: last done from tagged log entries, else a known record (receipts). */
@@ -522,14 +544,14 @@
       if (x.state === "overdue") {
         const late = x.leftMi < 0 ? `<b>${num(-x.leftMi)} miles past due</b>` : `<b>${-x.leftDays} days past due</b>`;
         c.push({ id: "svc-" + x.id, svc: x.id, pri: x.crit ? 99 : isOil ? 100 : x.safety ? 88 : 62, level: x.crit || isOil ? "CRITICAL" : x.safety ? "HIGH" : "MED",
-          title: isOil ? "Change the oil before anything else." : `${x.name} is overdue.`,
+          title: isOil ? "Change the oil before anything else." : `${x.name} is overdue.`, then: isOil ? "Oil change, overdue" : `${x.name}, overdue`,
           why: `${x.name} is ${late} (every ${num(x.everyMi)} mi or ${x.everyMo} months).${x.crit ? " If this one fails, it can take the engine with it." : ""}`, cost: x.cost, diff: x.diff, job: x.job });
       } else if (x.state === "soon") {
         c.push({ id: "svc-" + x.id, svc: x.id, pri: isOil ? 82 : 46, level: isOil ? "HIGH" : "LOW", title: isOil ? "Oil change is coming up." : `${x.name} is coming up.`,
           why: `Due in <b>${num(Math.max(0, x.leftMi))} miles</b> or ${Math.max(0, x.leftDays)} days, whichever comes first.`, cost: x.cost, diff: x.diff, job: x.job });
       }
     });
-    if (!svc.some((x) => x.id === "oil" && x.last)) c.push({ id: "svc-oil", svc: "oil", pri: 100, level: "CRITICAL", title: "Change the oil before anything else.", why: "There's no oil change in your log. Treat it as overdue.", cost: 40, diff: 2, job: "oil" });
+    if (!svc.some((x) => x.id === "oil" && x.last)) c.push({ id: "svc-oil", svc: "oil", pri: 100, level: "CRITICAL", title: "Change the oil before anything else.", then: "Oil change", why: "There's no oil change in your log. Treat it as overdue.", cost: 40, diff: 2, job: "oil" });
     const unknown = svc.filter((x) => x.state === "unknown" && x.id !== "oil");
     if (unknown.length) c.push({ id: "svc-unknown", pri: 50, level: "MED", title: `No record: ${unknown.map((x) => x.name.toLowerCase()).slice(0, 3).join(", ")}.`, why: `Find the receipts or do them, so the schedule can track them. Unknown history counts as due.`, cost: unknown.reduce((a, x) => a + (x.cost || 0), 0), diff: Math.max(...unknown.map((x) => x.diff || 2)), go: "service" });
 
@@ -546,7 +568,7 @@
       } else why = `Your <b>${esc(short)} ${esc(m.nag || "aren't done")}</b>, and they're safety items.`;
       const look = plannedLook ? esc(plannedLook.short || plannedLook.title.toLowerCase()) : "";
       const before = !plannedLook || plannedLook.id === m.id ? "" : plannedLook.system === m.system ? ` Buy the ${esc(short)} together with the ${look}. Check the pressures weekly until then.` : ` Do the ${esc(short)} before buying ${look}.`;
-      c.push({ id: m.id, mod: m, pri: 90 - i * 3, level: "HIGH", title: `Do the ${short} first.`, why: why + before, cost: m.est, diff: m.diff });
+      c.push({ id: m.id, mod: m, pri: 90 - i * 3, level: "HIGH", title: `Do the ${short} first.`, then: m.title, why: why + before, cost: m.est, diff: m.diff });
     });
 
     open.filter((m) => m.phase === 1 && !m.safety).sort(byOrder).forEach((m, i) => {

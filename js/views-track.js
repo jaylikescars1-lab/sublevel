@@ -46,10 +46,12 @@
   NS.acts["log-edit"] = (el) => { const e = NS.veh().log.find((x) => x.id === el.dataset.id); if (e) NS.logForm({ entry: e }); };
 
   NS.views.log = function () {
-    const v = NS.veh(); const log = NS.sortedLog(v);
+    const v = NS.veh(); const all = NS.sortedLog(v);
     const f = NS.ui.logType || "all";
+    // Quick checks live under their own filter, so the stats and the list count the same thing.
     const quick = (l) => (l.tags || []).includes("quick");
-    const list = log.filter((l) => (f === "checks" ? quick(l) : !quick(l) && (f === "all" || l.type === f)));
+    const log = all.filter((l) => !quick(l)), checks = all.length - log.length;
+    const list = f === "checks" ? all.filter(quick) : log.filter((l) => f === "all" || l.type === f);
     let lastMonth = "";
     const total = log.reduce((a, l) => a + (l.type === "buy" && /bought the car/i.test(l.title) ? 0 : +l.cost || 0), 0);
     return `${NS.subnav()}
@@ -72,7 +74,7 @@
           ${l.notes ? `<div class="n">${esc(l.notes)}</div>` : ""}
           ${(l.photos || []).length ? `<div class="photos" style="margin-top:8px">${l.photos.map((p) => `<img src="${NS.img(p)}" alt="" loading="lazy">`).join("")}</div>` : ""}
         </div></button>`;
-    }).join("") || '<div class="empty" style="margin-top:16px">No entries yet. Log what you did today, even if it was just checking the oil.</div>'}</div>`;
+    }).join("") || `<div class="empty" style="margin-top:16px">${f === "checks" ? "No quick checks yet. They come from the quick wins on the home screen." : f !== "all" ? "Nothing of this type yet." : "No sessions logged yet. Log what you did today, even if it was just checking the oil."}${f === "all" && checks ? `<br><button class="btn sm" data-act="log-type" data-k="checks" style="margin-top:12px">${checks} quick check${checks > 1 ? "s" : ""} logged</button>` : ""}</div>`}</div>`;
   };
   NS.acts["log-type"] = (el) => { NS.ui.logType = el.dataset.k; NS.render({ quiet: true }); };
 
@@ -170,7 +172,7 @@
       <div class="chips">${[["all", "All"]].concat(INV.map(([k, l]) => [k, l[0] + l.slice(1).toLowerCase()])).map(([k, l]) => `<button class="chip" data-act="inv-filter" data-k="${k}" aria-pressed="${f === k}">${l}</button>`).join("")}</div>
     </div>
     <div class="inv">${list.map((i) => `<div class="inv-row">
-      <button class="n" data-act="inv-edit" data-id="${i.id}" style="text-align:left;min-width:0">${esc(i.name)}<small>${[i.note, i.price ? money(i.price) : ""].filter(Boolean).map(esc).join(" · ") || "&nbsp;"}</small></button>
+      <button class="n" data-act="inv-edit" data-id="${i.id}" style="text-align:left;min-width:0">${esc(i.name)}${((t) => (t ? `<small>${t}</small>` : ""))([i.note, i.price ? money(i.price) : ""].filter(Boolean).map(esc).join(" · "))}</button>
       <div class="inv-seg" role="group" aria-label="Status">${INV.map(([s, l]) => `<button data-act="inv-status" data-id="${i.id}" data-v="${s}" aria-pressed="${i.status === s}">${l}</button>`).join("")}</div>
     </div>`).join("") || `<div class="empty" style="margin-top:8px">Nothing here yet.</div>`}</div>`;
   };

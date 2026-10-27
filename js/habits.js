@@ -124,10 +124,10 @@
     const mon = new Date(t); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7) - offset * 7);
     const end = new Date(mon.getTime() + 7 * DAY);
     const inW = (s) => { const d = NS.parseDate(s); return d >= mon && d < end; };
-    const logs = v.log.filter((l) => inW(l.date));
+    const all = v.log.filter((l) => inW(l.date)), logs = all.filter((l) => !(l.tags || []).includes("quick"));
     const mods = v.mods.filter((m) => m.status === "done" && m.doneDate && inW(m.doneDate));
-    const xp = logs.reduce((a, l) => a + 10 + (l.type === "maint" ? 15 : 0) + Math.min(60, Math.floor((l.minutes || 0) / 6)), 0) + mods.reduce((a, m) => a + NS.modXP(m), 0);
-    return { sessions: logs.length, minutes: logs.reduce((a, l) => a + (l.minutes || 0), 0), spent: v.expenses.filter((e) => inW(e.date)).reduce((a, e) => a + (+e.amount || 0), 0), xp, mods: mods.length, mon };
+    const xp = all.reduce((a, l) => a + 10 + (l.type === "maint" ? 15 : 0) + Math.min(60, Math.floor((l.minutes || 0) / 6)), 0) + mods.reduce((a, m) => a + NS.modXP(m), 0);
+    return { sessions: logs.length, checks: all.length - logs.length, minutes: all.reduce((a, l) => a + (l.minutes || 0), 0), spent: v.expenses.filter((e) => inW(e.date)).reduce((a, e) => a + (+e.amount || 0), 0), xp, mods: mods.length, mon };
   };
   NS.recapHTML = function (v) {
     const a = NS.weekStats(v, 0), b = NS.weekStats(v, 1);
@@ -138,7 +138,7 @@
       <div class="sec-head" style="margin-bottom:12px"><h2 class="h2">${fresh ? "New week" : "This week"}</h2><span class="px ${fresh ? "vio" : "dim"}">${fresh ? "FRESH START · " : ""}WEEK OF ${NS.fmtDate(iso(a.mon))}</span></div>
       <div class="grid g2">
         <div class="stat"><div class="k">XP earned</div><div class="v vio">+${num(a.xp)}</div><div class="s">${delta(a.xp, b.xp)}</div></div>
-        <div class="stat"><div class="k">Sessions</div><div class="v">${a.sessions}</div><div class="s">${delta(a.sessions, b.sessions)}</div></div>
+        <div class="stat"><div class="k">Sessions</div><div class="v">${a.sessions}</div><div class="s">${a.checks && !a.sessions && !b.sessions ? `<span class="dim">+ ${a.checks} quick check${a.checks > 1 ? "s" : ""}</span>` : delta(a.sessions, b.sessions)}</div></div>
         <div class="stat"><div class="k">Garage time</div><div class="v">${h ? h + "h " : ""}${m}m</div><div class="s">${a.mods ? `${a.mods} mod${a.mods > 1 ? "s" : ""} finished` : "No mods finished yet"}</div></div>
         <div class="stat"><div class="k">Spent</div><div class="v">${money(a.spent)}</div><div class="s">${delta(a.spent, b.spent, true)}</div></div>
       </div>

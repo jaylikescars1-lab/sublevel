@@ -291,7 +291,7 @@
     const stats = [["BUILD", NS.buildPct(v) + "%"], ["INVESTED", money(NS.invested(v))], ["RANK", "LV" + L.n]];
     stats.forEach(([k, val], i) => {
       const sx = 76 + i * 320;
-      x.font = '400 16px Silkscreen, monospace'; x.fillStyle = "#716c84"; x.fillText(k, sx, 940);
+      x.font = '400 16px Silkscreen, monospace'; x.fillStyle = "#8a86a0"; x.fillText(k, sx, 940);
       x.font = '600 64px "Barlow Semi Condensed", sans-serif'; x.fillStyle = "#ecebf2"; x.fillText(val, sx, 1004);
     });
     const sys = NS.systemPct(v);
@@ -301,7 +301,7 @@
       x.fillStyle = "#ecebf2"; x.textAlign = "right"; x.fillText(sys[s] + "%", 1004, y + 15); x.textAlign = "left";
     });
     x.strokeStyle = "rgba(214,206,240,.16)"; x.beginPath(); x.moveTo(76, 1278); x.lineTo(1004, 1278); x.stroke();
-    x.font = '400 16px Silkscreen, monospace'; x.fillStyle = "#716c84"; x.fillText("LEVEL B2 · PRIVATE GARAGE", 76, 1312);
+    x.font = '400 16px Silkscreen, monospace'; x.fillStyle = "#8a86a0"; x.fillText("LEVEL B2 · PRIVATE GARAGE", 76, 1312);
     x.textAlign = "right"; x.fillText(NS.fmtDate(NS.today()) + " " + new Date().getFullYear(), 1004, 1312); x.textAlign = "left";
     return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej()), "image/png"));
   }

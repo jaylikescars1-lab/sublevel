@@ -19,6 +19,7 @@
       <div><div class="k">YOUR PACE</div><div class="v">${num(pace * 7)}<span class="dim" style="font-size:12px"> mi/wk</span></div></div>
     </div>
     ${(() => { const bad = v.log.filter((l) => l.mileage > v.mileage + 50); return bad.length ? `<div class="warnbox" style="margin-bottom:14px"><h4>CHECK YOUR LOG MILEAGE</h4><p style="margin:0;color:var(--fg-2);font-size:14px">${bad.length} log ${bad.length === 1 ? "entry has" : "entries have"} more miles than your odometer (${num(v.mileage)}). Edit ${bad.length === 1 ? "it" : "them"} in the Garage Log so these countdowns are right.</p><button class="btn sm" data-act="go" data-r="log" style="margin-top:10px">Open the log</button></div>` : ""; })()}
+    ${NS.isEK(v) ? drivingHTML(v) : ""}
     <div class="chips wrap" style="margin-bottom:14px">${Object.entries(counts).filter(([, n]) => n).map(([k, n]) => `<span class="tag ${STATE[k][1]}">${n} ${STATE[k][0]}</span>`).join("")}</div>
     <div class="svc-list">${list.map((x) => {
       const [label, cls] = STATE[x.state];
@@ -26,9 +27,10 @@
       return `<div class="svc" data-state="${x.state}">
         <div class="svc-top">
           <div style="min-width:0"><div class="t">${esc(x.name)}${x.crit ? ' <span class="tag bad">ENGINE-CRITICAL</span>' : ""}${x.safety ? ' <span class="tag bad">SAFETY</span>' : ""}</div>
-            <div class="m">Every ${num(x.everyMi)} mi or ${x.everyMo} mo · ${x.last ? `last ${NS.fmtDate(x.last.date)} ${String(x.last.date).slice(0, 4)} at ${num(x.last.mi)} mi${x.last.src === "record" ? " (" + esc(x.last.note || "record") + ")" : ""}` : "no record yet"}</div></div>
+            <div class="m">Every ${num(x.everyMi)} mi or ${x.everyMo} mo${factoryTag(v, x)} · ${x.last ? `last ${NS.fmtDate(x.last.date)} ${String(x.last.date).slice(0, 4)} at ${num(x.last.mi)} mi${x.last.src === "record" ? " (" + esc(x.last.note || "record") + ")" : ""}` : "no record yet"}</div></div>
           <span class="tag ${cls}">${label}</span>
         </div>
+        ${NS.isEK(v) && x.note ? `<p class="svc-note">${esc(x.note)}</p>` : ""}
         <div class="meter ${x.state === "overdue" ? "bad" : x.state === "soon" || x.state === "unknown" ? "warn" : ""}" style="margin-top:10px"><b style="width:${pct}%"></b></div>
         <div class="row between" style="margin-top:8px">
           <span class="mono dim" style="font-size:12px">${x.last ? (x.leftMi >= 0 ? `${num(x.leftMi)} mi left · due ${num(x.dueMi)}` : `${num(-x.leftMi)} mi over`) : "Log it or add the receipt"}</span>
@@ -36,7 +38,30 @@
         </div>
       </div>`;
     }).join("")}</div>
-    <p class="dim" style="font-size:13px;margin-top:16px;max-width:70ch">Intervals are conservative for an older, high-mileage car. Adjust any of them to match your owner's manual.</p>`;
+    <p class="dim" style="font-size:13px;margin-top:16px;max-width:70ch">${NS.isEK(v) ? `Intervals from the ${esc(D.serviceSrc)}. Change any of them with the pencil.` : "A general schedule. Adjust any interval to match your owner's manual."}</p>`;
+  };
+  /* Honda's two schedules. Severe is the right one if most of your driving is on this list. */
+  function drivingHTML(v) {
+    const d = v.driving || "severe";
+    return `<div class="panel tight" style="margin-bottom:14px">
+      <div class="row between" style="gap:12px;flex-wrap:wrap"><span class="lbl">How you drive</span>
+        <div class="seg" style="min-width:220px">${[["normal", "Normal"], ["severe", "Severe"]].map(([k, l]) => `<button type="button" data-act="svc-driving" data-v="${k}" aria-pressed="${d === k}">${l}</button>`).join("")}</div></div>
+      <details class="more" style="margin-top:8px"><summary class="dim" style="font-size:13.5px">${d === "severe" ? "Severe" : "Normal"} schedule. Which one is mine?</summary>
+        <p class="muted" style="font-size:13.5px;margin:8px 0 4px">Honda says use Severe if your driving is <b>mostly</b> any of these:</p>
+        <ul class="clean-list" style="font-size:13.5px">${D.severeList.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></details>
+    </div>`;
+  }
+  function factoryTag(v, x) {
+    const f = x.factory && NS.isEK(v) && x.factory[v.driving || "severe"];
+    return f && (f[0] !== x.everyMi || f[1] !== x.everyMo) ? ` <span class="warn">(your setting; Honda: ${num(f[0])} mi / ${f[1]} mo)</span>` : "";
+  }
+  NS.acts["svc-driving"] = (el) => {
+    const v = NS.veh(); const from = v.driving || "severe", to = el.dataset.v; if (from === to) return;
+    v.service.forEach((it) => {
+      const def = D.service.find((x) => x.id === it.id);
+      if (def && def.factory && it.everyMi === def.factory[from][0] && it.everyMo === def.factory[from][1]) [it.everyMi, it.everyMo] = def.factory[to];
+    });
+    v.driving = to; NS.commitVeh(); NS.toast(to === "severe" ? "Severe schedule: shorter oil, brake and fluid intervals" : "Normal schedule");
   };
 
   NS.acts["svc-log"] = (el) => {

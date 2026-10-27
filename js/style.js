@@ -31,19 +31,19 @@
       <rect width="200" height="200" fill="url(#${id}bg)"/><circle cx="100" cy="100" r="76" fill="#0b0a10" stroke="url(#${id}b)" stroke-width="6"/><circle cx="100" cy="100" r="66" fill="url(#${id}f)"/>${t}
       <path d="M${100 + Math.cos(-0.35) * 58} ${100 + Math.sin(-0.35) * 58} A58 58 0 0 1 ${100 + Math.cos(0.79) * 58} ${100 + Math.sin(0.79) * 58}" stroke="#f0566e" stroke-width="4" fill="none"/>
       <line x1="100" y1="100" x2="${100 + Math.cos(na) * 52}" y2="${100 + Math.sin(na) * 52}" stroke="#ff6a3d" stroke-width="3" stroke-linecap="round"/><circle cx="100" cy="100" r="8" fill="#14121a"/>
-      <text x="100" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#14121a" letter-spacing="1">OIL °C</text></svg>`; },
+      <text x="100" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#14121a" letter-spacing="1">OIL °C</text></svg>`; },
     Seats: (p) => { const id = uid(), c = p.hex || "#18181c"; return `<svg viewBox="0 0 200 200" role="img" aria-label="${esc(p.title)}"><defs>${bg(id)}<linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${NS.shade(c, 0.25)}"/><stop offset="1" stop-color="${NS.shade(c, -0.3)}"/></linearGradient></defs>
       <rect width="200" height="200" fill="url(#${id}bg)"/>
       <path d="M118 22 C138 20 146 30 146 46 L140 120 C139 132 132 138 120 140 L76 146 C64 148 56 140 58 128 L62 116 C64 108 72 104 82 104 L104 102 L104 40 C104 30 108 23 118 22Z" fill="url(#${id}s)" stroke="${NS.shade(c, 0.4)}" stroke-width="1.5"/>
       <path d="M110 30 L110 100" stroke="#fff" stroke-opacity=".12" stroke-width="2"/><rect x="118" y="40" width="14" height="22" rx="5" fill="#07060b"/><rect x="118" y="88" width="10" height="16" rx="4" fill="#07060b"/>
       <rect x="62" y="152" width="84" height="6" rx="2" fill="#2a2734"/><rect x="70" y="146" width="6" height="10" fill="#2a2734"/><rect x="128" y="146" width="6" height="10" fill="#2a2734"/>
-      <text x="100" y="186" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#716c84" letter-spacing="1">SIDE VIEW</text></svg>`; },
+      <text x="100" y="186" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8a86a0" letter-spacing="1">SIDE VIEW</text></svg>`; },
     Interiors: (p) => { const id = uid(), c = p.hex || "#4a4a52"; return `<svg viewBox="0 0 200 200" role="img" aria-label="${esc(p.title)}"><defs>${bg(id)}<pattern id="${id}w" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="${c}"/><rect width="4" height="4" fill="${NS.shade(c, -0.18)}"/><rect x="4" y="4" width="4" height="4" fill="${NS.shade(c, -0.18)}"/><rect x="1" y="1" width="2" height="1" fill="${NS.shade(c, 0.15)}"/></pattern></defs>
       <rect width="200" height="200" fill="url(#${id}bg)"/>
       <rect x="22" y="26" width="156" height="110" rx="14" fill="url(#${id}w)"/><rect x="22" y="26" width="156" height="110" rx="14" fill="none" stroke="#000" stroke-opacity=".4" stroke-width="2"/>
       <path d="M34 38 H166 V124 H34Z" fill="none" stroke="#e9e6f4" stroke-opacity=".35" stroke-dasharray="3 3"/>
       <path d="M78 136 L82 112 C82 104 118 104 118 112 L122 136Z" fill="#141218"/><ellipse cx="100" cy="100" rx="16" ry="14" fill="#0b0a10" stroke="#3a3747" stroke-width="2"/><ellipse cx="96" cy="96" rx="5" ry="3" fill="#fff" opacity=".12"/>
-      <rect x="22" y="150" width="156" height="28" rx="8" fill="#121118"/><text x="100" y="168" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#aaa6b8" letter-spacing="1">CLOTH + KNOB</text></svg>`; },
+      <rect x="22" y="150" width="156" height="28" rx="8" fill="#121118"/><text x="100" y="168" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#aaa6b8" letter-spacing="1">CLOTH + KNOB</text></svg>`; },
     "Exhaust tips": (p) => { const id = uid(), c = p.hex || "#8d8f98"; const ti = /burn|titan|blue/i.test(p.title + p.note); return `<svg viewBox="0 0 200 200" role="img" aria-label="${esc(p.title)}"><defs>${bg(id)}<linearGradient id="${id}t" x1="0" y1="0" x2="1" y2="1">${ti ? '<stop offset="0" stop-color="#e3c27a"/><stop offset=".4" stop-color="#7a4fd6"/><stop offset=".7" stop-color="#2f5fd0"/><stop offset="1" stop-color="#c9a3ff"/>' : `<stop offset="0" stop-color="${NS.shade(c, 0.6)}"/><stop offset=".5" stop-color="${NS.shade(c, -0.4)}"/><stop offset="1" stop-color="${NS.shade(c, 0.3)}"/>`}</linearGradient><radialGradient id="${id}h" cx=".55" cy=".55" r=".5"><stop offset="0" stop-color="#000"/><stop offset=".7" stop-color="#121018"/><stop offset="1" stop-color="#2a2733"/></radialGradient></defs>
       <rect width="200" height="200" fill="url(#${id}bg)"/><rect x="0" y="140" width="200" height="60" fill="#0d0c12"/>
       <circle cx="100" cy="100" r="62" fill="url(#${id}t)"/><circle cx="100" cy="100" r="50" fill="${NS.shade(c, -0.55)}"/><circle cx="102" cy="102" r="46" fill="url(#${id}h)"/>
@@ -112,7 +112,7 @@
     </section>
 
     <div class="chips" style="margin:22px 0 8px">${["all"].concat(cats).map((c) => `<button class="chip" data-act="style-cat" data-k="${esc(c)}" aria-pressed="${cat === c}">${c === "all" ? "Everything" : esc(c)}</button>`).join("")}</div>
-    <div class="chips" style="margin-bottom:16px">${["all"].concat(D.aesthetics).map((t) => `<button class="chip" data-act="style-tag" data-k="${t}" aria-pressed="${tag === t}" style="font-family:var(--f-pixel);font-size:10px;letter-spacing:.06em">${t === "all" ? "ALL STYLES" : t}</button>`).join("")}</div>
+    <div class="chips" style="margin-bottom:16px">${["all"].concat(D.aesthetics).map((t) => `<button class="chip" data-act="style-tag" data-k="${t}" aria-pressed="${tag === t}" style="font-family:var(--f-pixel);font-size:11px;letter-spacing:.06em">${t === "all" ? "ALL STYLES" : t}</button>`).join("")}</div>
     <div class="board">${list.map((p) => `<article class="pin">
       <button class="pin-art" data-act="pin-edit" data-id="${p.id}" aria-label="Edit ${esc(p.title)}">${NS.pinArt(p, v)}<span class="pin-cat">${esc(p.cat.toUpperCase())}</span></button>
       <div class="cap"><div class="t">${esc(p.title)}</div>${p.note ? `<div class="dim" style="font-size:12.5px;margin-top:3px">${esc(p.note)}</div>` : ""}

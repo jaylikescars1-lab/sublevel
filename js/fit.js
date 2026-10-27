@@ -75,9 +75,11 @@
     const gap = H0 - t.OD / 2;                                              // tread to lip, at rest
     const travel = Math.max(25, C.bump - 0.5 * drop);                       // bump travel left after lowering
 
-    // Fender poke at hub height (how far it sticks out past the lip, looking straight down).
-    const poke = xc + Math.max(t.S / 2, w.Wo / 2) - lipX;
-    const pokeStock = -st.offset + Math.max(ts.S / 2, ws.Wo / 2) - C.lipOut;
+    // Fender poke: the outermost point of the upper half, at static camber, past the lip. This is what "flush" means
+    // to people (negative camber tucks the top in) and what tire-coverage rules look at from above.
+    const top = (tt, ww, x0, tl) => { let m = -Infinity; for (let r = ww.R; r <= tt.OD / 2; r += 2) m = Math.max(m, x0 + halfWidth(tt, ww, r) * Math.cos(rad(tl)) - r * Math.sin(rad(tl))); return m; };
+    const poke = top(t, w, xc, tilt0) - lipX;
+    const pokeStock = top(ts, ws, -st.offset, -C.stockCamber) - C.lipOut;
 
     // Rub check: compress to the bump stop. At each step the lip (an arc around the hub) drops by c·cos(a)
     // and camber grows. Any part of the tire outboard of the lip's fold at the lip's height is a rub.
@@ -141,5 +143,21 @@
     };
   }
 
-  NS.fit = { tire, wheel, halfWidth, calc, car, GAIN };
+  /* Tape measurements -> car numbers, at ride height with the wheels on the car now.
+     m: { dia, width, offset, tw, ar, drop (in), camber (deg), suspension, stock, lip, inner, gap } where
+     lip = how far the fender lip sits outboard of the rim edge at the top (mm, negative if the rim sticks out),
+     inner = inside of the tire to the nearest suspension part, gap = top of the tread straight up to the lip. */
+  function fromMeasure(m) {
+    const t = tire(m.tw, m.ar, m.dia, m.width), w = wheel(m.dia, m.width), st = m.stock, ts = tire(st.tw, st.ar, st.dia, st.width);
+    const tl = -m.camber, tIn = m.suspension === "strut" ? 0 : Math.max(0, tl), out = {};
+    if (m.lip != null) out.lipOut = Math.round(-m.offset + (w.Wo / 2) * Math.cos(rad(tl)) - w.Rf * Math.sin(rad(tl)) + m.lip);
+    if (m.inner != null) {
+      let i = 0; for (let r = w.R; r <= t.OD / 2; r += 2) i = Math.max(i, m.offset + halfWidth(t, w, r) * Math.cos(rad(tIn)) + r * Math.sin(rad(tIn)));
+      out.innerLimit = Math.round(i + m.inner);
+    }
+    if (m.gap != null) out.stockGap = Math.round(m.gap + t.OD / 2 - ts.OD / 2 + (m.drop || 0) * IN);
+    return out;
+  }
+
+  NS.fit = { tire, wheel, halfWidth, calc, car, fromMeasure, GAIN };
 })();
