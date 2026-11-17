@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Project Car Binder</title>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #121212; --mid: #6a6a6a; --rule: #8c8c8c; --soft: #cfcfcf; --fill: #ececec; --zebra: #f6f6f6; --accent: #e4572e;
+    --pw: 8.5in; --ph: 11in;
+  }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Barlow', sans-serif; font-weight: 500; color: var(--ink); background: #fff; font-size: 9pt; }
+  body.screen { background: #d9d9d9; padding: 24px 0; }
+  body.screen .page { margin: 0 auto 24px; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+
+  .page { width: var(--pw); height: var(--ph); padding: 0.42in 0.48in 0.34in; display: flex; flex-direction: column; break-after: page; overflow: hidden; position: relative; background: #fff; }
+  .page:last-child { break-after: auto; }
+  .cond { font-family: 'Barlow Semi Condensed', sans-serif; }
+
+  /* header */
+  .ph { flex: none; margin-bottom: 0.16in; }
+  .ph-top { display: flex; justify-content: space-between; align-items: flex-end; font: 700 7.5pt 'Barlow', sans-serif; letter-spacing: .22em; text-transform: uppercase; }
+  .brand::before { content: ""; display: inline-block; width: 7px; height: 7px; background: var(--accent); margin-right: 7px; vertical-align: 1px; }
+  .car { display: flex; align-items: flex-end; gap: 6px; color: var(--mid); }
+  .car i { display: inline-block; width: 2.6in; border-bottom: .8pt solid var(--ink); height: 12px; }
+  h1 { font: 700 30pt/1 'Barlow Semi Condensed', sans-serif; text-transform: uppercase; letter-spacing: .005em; margin-top: 6px; }
+  .ph-rule { height: 3.5px; background: var(--ink); margin-top: 6px; position: relative; }
+  .ph-rule::after { content: ""; position: absolute; left: 0; top: 0; height: 3.5px; width: 1.15in; background: var(--accent); }
+  .hint { margin-top: 7px; color: var(--mid); font-size: 8.5pt; line-height: 1.35; }
+  .hint b { color: var(--ink); font-weight: 700; }
+
+  .pb { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.14in; }
+
+  /* footer */
+  .pf { flex: none; display: flex; justify-content: space-between; margin-top: 0.12in; padding-top: 5px; border-top: .5pt solid var(--soft); font: 600 6.5pt 'Barlow', sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--mid); }
+
+  /* ruled tables */
+  .tbl { flex: 1; min-height: 0; display: grid; border-top: 1.4pt solid var(--ink); border-bottom: 1.4pt solid var(--ink); }
+  .th { background: var(--fill); font: 700 7.2pt/1.15 'Barlow Semi Condensed', sans-serif; text-transform: uppercase; letter-spacing: .07em; padding: 5px 6px 4px; border-bottom: 1pt solid var(--ink); border-right: .5pt solid var(--soft); display: flex; flex-direction: column; justify-content: flex-end; }
+  .th small { display: block; font-size: 6pt; color: var(--mid); letter-spacing: .1em; }
+  .td { border-bottom: .6pt solid var(--rule); border-right: .5pt solid var(--soft); padding: 0 6px; display: flex; align-items: center; font-size: 8.8pt; min-width: 0; }
+  .td.z { background: var(--zebra); }
+  .th.last, .td.last { border-right: 0; }
+  .td.endrow { border-bottom: 0; }
+  .td.pre { font-weight: 600; }
+  .opt { word-spacing: .75em; color: #9a9a9a; font: 600 7.5pt 'Barlow Semi Condensed', sans-serif; letter-spacing: .14em; white-space: nowrap; }
+  .td.c { justify-content: center; }
+  .box { width: 10px; height: 10px; border: 1pt solid var(--ink); flex: none; background: #fff; }
+  .quad { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; height: 72%; }
+  .quad i { font-style: normal; font: 600 6pt 'Barlow Semi Condensed', sans-serif; color: #9a9a9a; border-left: .5pt solid var(--soft); padding: 1px 3px; }
+  .quad i:first-child { border-left: 0; }
+  .td.strong { font-weight: 700; }
+  .td.hl { background: #fdebe5; }
+
+  /* fields */
+  .frow { display: grid; gap: 0.16in; }
+  .fld { border-bottom: 1pt solid var(--ink); height: 0.4in; position: relative; }
+  .fld span, .lbl { font: 700 6.8pt 'Barlow', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--mid); }
+  .fld span { position: absolute; left: 0; top: 2px; }
+  .inl { display: flex; align-items: flex-end; gap: 6px; }
+  .inl span { font: 700 6.8pt 'Barlow', sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); white-space: nowrap; }
+  .inl i { flex: 1; border-bottom: .8pt solid var(--ink); height: 16px; }
+
+  .lines { flex: 1; min-height: 0; --lh: 0.31in; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - .7pt), #9d9d9d calc(var(--lh) - .7pt), #9d9d9d var(--lh)); }
+
+  .sec { font: 700 9pt 'Barlow Semi Condensed', sans-serif; letter-spacing: .12em; text-transform: uppercase; display: flex; align-items: center; gap: 7px; }
+  .sec::before { content: ""; width: 4px; height: 11px; background: var(--accent); }
+
+  /* checklists */
+  .cols2 { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.3in; }
+  .ckcol { display: flex; flex-direction: column; gap: 0.11in; min-height: 0; }
+  .grp { display: flex; flex-direction: column; }
+  .grp .sec { margin-bottom: 4px; }
+  .ck { display: flex; align-items: flex-start; gap: 7px; font-size: 8.8pt; line-height: 1.25; padding: 3.2px 0; border-bottom: .5pt solid #e1e1e1; }
+  .ck .box { margin-top: 1.5px; }
+  .ck em { font-style: normal; color: var(--mid); }
+  .note { color: var(--mid); font-size: 8pt; line-height: 1.35; }
+  .note b { color: var(--ink); }
+
+  /* boxes */
+  .boxes { display: grid; gap: 0.14in; }
+  .bx { border: 1.2pt solid var(--ink); padding: 6px 8px; display: flex; flex-direction: column; }
+  .bx .lbl { margin-bottom: 4px; }
+
+  /* cover */
+  .p-cover { padding: 0.5in 0.55in 0.45in; }
+  .cv-top { display: flex; justify-content: space-between; font: 700 7.5pt 'Barlow', sans-serif; letter-spacing: .22em; text-transform: uppercase; }
+  .cv-top .vol { display: flex; align-items: flex-end; gap: 6px; color: var(--mid); }
+  .cv-top .vol i { width: 0.6in; border-bottom: .8pt solid var(--ink); height: 12px; display: inline-block; }
+  .cv-head { position: relative; margin-top: 0.35in; padding-bottom: 0.14in; border-bottom: 5px solid var(--ink); }
+  .cv-title { font: 700 84pt/.86 'Barlow Semi Condensed', sans-serif; text-transform: uppercase; letter-spacing: -.005em; }
+  .cv-title div span { display: inline-block; }
+  .stripes { position: absolute; right: 0; top: 0; height: 100%; width: 1.5in; }
+  .cv-sub { margin-top: 0.12in; font: 600 9pt 'Barlow', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: var(--mid); }
+  .cv-fields { margin-top: 0.32in; display: flex; flex-direction: column; gap: 0.16in; }
+  .vin { display: grid; grid-template-columns: repeat(17, 1fr); border: 1pt solid var(--ink); height: 0.36in; margin-top: 5px; }
+  .vin i { border-left: .6pt solid var(--rule); }
+  .vin i:first-child { border-left: 0; }
+  .vin i:nth-child(9) { background: var(--zebra); }
+  .cv-goal { margin-top: 0.3in; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .cv-found { margin-top: 0.18in; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+/* ---------- products: one source, several Etsy listings ---------- */
+const PRODUCTS = {
+  binder: {
+    name: "Project Car Binder",
+    cover: ["Project", "Car", "Binder"],
+    sub: "Maintenance · Build · Budget · Track",
+    pages: ["cover", "specs", "schedule", "maint", "fuel", "problems", "build", "parts", "budget", "shopping", "torque", "trackprep", "track", "inspect", "compare", "journal"],
+  },
+  maintenance: {
+    name: "Car Maintenance Log",
+    cover: ["Car", "Maintenance", "Log"],
+    sub: "Service · Fuel · Repairs",
+    pages: ["cover", "specs", "schedule", "maint", "fuel", "problems"],
+  },
+  inspection: {
+    name: "Used Car Inspection",
+    pages: ["inspect", "compare"],
+  },
+  track: {
+    name: "Track Day Kit",
+    pages: ["trackprep", "track"],
+  },
+};
+window.PRODUCTS = PRODUCTS;
+
+const Q = new URLSearchParams(location.search);
+const SIZE = Q.get("size") === "a4" ? "a4" : "letter";
+const PROD = PRODUCTS[Q.get("product")] || PRODUCTS.binder;
+const ONLY = Q.get("pages") ? Q.get("pages").split(",") : PROD.pages;
+if (Q.get("screen")) document.body.classList.add("screen");
+document.title = PROD.name; // becomes the PDF's title
+
+const DIM = { letter: ["8.5in", "11in", "letter"], a4: ["210mm", "297mm", "A4"] }[SIZE];
+document.documentElement.style.setProperty("--pw", DIM[0]);
+document.documentElement.style.setProperty("--ph", DIM[1]);
+document.head.insertAdjacentHTML("beforeend", `<style>@page { size: ${DIM[2]}; margin: 0; }</style>`);
+
+/* ---------- building blocks ---------- */
+const header = (title, o = {}) => `<header class="ph">
+  <div class="ph-top"><span class="brand">${PROD.name}</span>${o.car === false ? "" : `<span class="car">Car <i></i></span>`}</div>
+  <h1>${title}</h1><div class="ph-rule"></div>${o.hint ? `<p class="hint">${o.hint}</p>` : ""}</header>`;
+const footer = (title) => `<footer class="pf"><span>${PROD.name} · ${title}</span><span>Print as many as you need</span></footer>`;
+const page = (id, title, body, o) => `<section class="page p-${id}" data-id="${id}">${header(title, o)}<main class="pb">${body}</main>${footer(title)}</section>`;
+
+/* cols: [{t: header html, w: grid width, cell: html for every row, cls}]; rows: a count, or the first column's text per row */
+function table(cols, rows, o = {}) {
+  const n = typeof rows === "number" ? rows : rows.length;
+  const last = cols.length - 1;
+  let html = cols.map((c, i) => `<div class="th${i === last ? " last" : ""}">${c.t}</div>`).join("");
+  for (let r = 0; r < n; r++) {
+    cols.forEach((c, i) => {
+      let content = c.cell || "", cls = c.cls || "";
+      if (i === 0 && Array.isArray(rows)) { content = rows[r] || ""; if (content) cls += " pre"; }
+      if (o.rowCls && o.rowCls[r]) cls += " " + o.rowCls[r];
+      html += `<div class="td ${cls}${r % 2 ? " z" : ""}${i === last ? " last" : ""}${r === n - 1 ? " endrow" : ""}">${content}</div>`;
+    });
+  }
+  return `<div class="tbl" style="grid-template-columns:${cols.map((c) => c.w || "1fr").join(" ")};grid-template-rows:auto repeat(${n}, minmax(0, 1fr))">${html}</div>`;
+}
+const th2 = (top, bottom) => `<small>${top}</small>${bottom}`;
+const box = `<span class="box"></span>`;
+const opts = (s) => `<span class="opt">${s}</span>`;
+const fields = (labels, tmpl) => `<div class="frow" style="grid-template-columns:${tmpl || `repeat(${labels.length}, 1fr)`}">${labels.map((l) => `<div class="fld"><span>${l}</span></div>`).join("")}</div>`;
+const inl = (label, w) => `<div class="inl" style="${w ? `flex:${w}` : "flex:1"}"><span>${label}</span><i></i></div>`;
+const checks = (title, items) => `<div class="grp"><div class="sec">${title}</div>${items.map((t) => `<div class="ck">${box}<span>${t}</span></div>`).join("")}</div>`;
+
+/* ---------- the pages ---------- */
+const PAGES = {
+  cover: () => {
+    const words = PROD.cover || [PROD.name];
+    return `<section class="page p-cover" data-id="cover">
+      <div class="cv-top"><span class="brand">${PROD.name}</span><span class="vol">Vol. <i></i></span></div>
+      <div class="cv-head">
+        <div class="cv-title" id="cvt">${words.map((w) => `<div><span>${w}</span></div>`).join("")}</div>
+        <svg class="stripes" viewBox="0 0 150 300" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">
+          <polygon points="70,0 96,0 46,300 20,300" fill="#e4572e"/>
+          <polygon points="104,0 122,0 72,300 54,300" fill="#121212"/>
+          <polygon points="130,0 142,0 92,300 80,300" fill="#121212"/>
+        </svg>
+        <div class="cv-sub">${PROD.sub || ""}</div>
+      </div>
+      <div class="cv-fields">
+        ${fields(["Year", "Make", "Model"], "0.8fr 1.4fr 1.8fr")}
+        ${fields(["Trim", "Engine", "Transmission"], "1fr 1.4fr 1.2fr")}
+        ${fields(["Nickname"])}
+        <div><span class="lbl">VIN</span><div class="vin">${"<i></i>".repeat(17)}</div></div>
+        ${fields(["Plate", "State", "Paint code"], "1.4fr 0.8fr 1.4fr")}
+        ${fields(["Bought on", "Miles", "Price paid"])}
+        ${fields(["Owner"])}
+      </div>
+      <div class="cv-goal"><div class="sec">The goal for this car</div><div class="lines" style="margin-top:4px"></div></div>
+      <div class="cv-found inl"><span>If found, please call</span><i></i></div>
+    </section>`;
+  },
+
+  specs: () => {
+    const row = (label, subs) => `<div class="sr" style="display:grid;grid-template-columns:1.12in 1fr;align-items:end;gap:8px;flex:1;max-height:.54in;min-height:.3in">
+      <div style="font-weight:700;font-size:8.8pt;padding-bottom:2px">${label}</div>
+      <div style="display:flex;gap:10px;align-items:flex-end">${subs.map((s) => s.startsWith("!") ? `<div style="flex:1;padding-bottom:3px">${opts(s.slice(1))}</div>` : inl(s)).join("")}</div></div>`;
+    const sect = (title, rows, first) => `<div class="sec" style="margin:${first ? 2 : 18}px 0 2px">${title}</div>${rows.map((r) => row(r[0], r[1])).join("")}`;
+    const col = (html) => `<div style="display:flex;flex-direction:column;gap:2px;min-height:0">${html}</div>`;
+    return page("specs", "Spec Sheet", `<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:.32in;min-height:0">
+      ${col(sect("Engine & drivetrain", [
+        ["Engine", ["Code", "Size"]],
+        ["Transmission", ["Type", "Code"]],
+        ["Drivetrain", ["!FWD   RWD   AWD   4WD"]],
+        ["Timing", ["!BELT   CHAIN", "Every"]],
+        ["Firing order", [""]],
+      ], true) + sect("Fluids", [
+        ["Engine oil", ["Type", "Qty"]],
+        ["Oil filter", ["Part #"]],
+        ["Coolant", ["Type", "Qty"]],
+        ["Trans fluid", ["Type", "Qty"]],
+        ["Diff fluid", ["Type", "Qty"]],
+        ["Brake fluid", ["Type"]],
+        ["Power steering", ["Type"]],
+        ["Fuel", ["Octane", "Tank"]],
+      ]))}
+      ${col(sect("Tune-up parts", [
+        ["Spark plugs", ["Part #", "Gap"]],
+        ["Air filter", ["Part #"]],
+        ["Cabin filter", ["Part #"]],
+        ["Drive belt", ["Part #"]],
+        ["Wiper blades", ["Driver", "Pass."]],
+        ["Battery", ["Group", "CCA"]],
+      ], true) + sect("Wheels & tires", [
+        ["Tire size", ["Front", "Rear"]],
+        ["Tire pressure", ["Front", "Rear"]],
+        ["Wheel", ["Size", "Offset"]],
+        ["Bolt pattern", ["", "Bore"]],
+        ["Lug nuts", ["Thread", "Torque"]],
+      ]) + sect("Other", [
+        ["Bulbs", ["Low", "High"]],
+        ["Paint code", [""]],
+        ["Jack points", [""]],
+      ]))}
+    </div>`, { hint: "Fill this in once, from your owner's manual or a service manual, and you'll never have to look up the oil or the plug gap again." });
+  },
+
+  schedule: () => page("schedule", "Service Schedule", table([
+    { t: "Service", w: "2.3fr" },
+    { t: th2("Every", "Miles"), w: ".85fr" },
+    { t: th2("Every", "Months"), w: ".7fr" },
+    { t: th2("Last done", "Date"), w: ".9fr" },
+    { t: th2("Last done", "Miles"), w: ".9fr" },
+    { t: th2("Next due", "Date"), w: ".9fr" },
+    { t: th2("Next due", "Miles"), w: ".9fr" },
+  ], ["Engine oil & filter", "Tire rotation", "Air filter", "Cabin air filter", "Wiper blades", "Brake pads, front", "Brake pads, rear", "Brake fluid", "Coolant", "Spark plugs", "Transmission fluid", "Differential fluid", "Power steering fluid", "Drive belt", "Timing belt & water pump", "Valve clearance", "Battery test", "Alignment", "", "", "", ""]),
+    { hint: "Copy the intervals from your owner's manual. <b>Track days, towing, short trips and dusty roads count as severe use</b>, so use the shorter interval." }),
+
+  maint: () => page("maint", "Maintenance Log", table([
+    { t: "Date", w: ".8fr" },
+    { t: "Miles", w: ".85fr" },
+    { t: "Work done", w: "2.5fr" },
+    { t: "Parts & fluids", w: "2fr" },
+    { t: "Cost", w: ".7fr" },
+    { t: "By", w: ".78fr", cell: opts("DIY · SHOP"), cls: "c" },
+  ], 25)),
+
+  fuel: () => page("fuel", "Fuel Log", table([
+    { t: "Date", w: ".8fr" },
+    { t: "Odometer", w: ".95fr" },
+    { t: th2("Distance", "Since last fill"), w: ".95fr" },
+    { t: th2("Fuel", "Gal / L"), w: ".7fr" },
+    { t: th2("Price", "Per gal / L"), w: ".75fr" },
+    { t: "Total", w: ".7fr" },
+    { t: th2("Economy", "MPG / L per 100"), w: ".85fr" },
+    { t: "Notes", w: "1.5fr" },
+  ], 26), { hint: "<b>MPG</b> = miles driven ÷ gallons. <b>L/100 km</b> = litres ÷ km × 100. Fill the tank all the way each time so the numbers are fair. A sudden drop is often the first sign of a problem." }),
+
+  problems: () => page("problems", "Problems & Fixes", table([
+    { t: "Date", w: ".75fr" },
+    { t: "Miles", w: ".75fr" },
+    { t: th2("Symptom", "What, when, how often"), w: "2fr" },
+    { t: "Codes", w: ".8fr" },
+    { t: "Cause found", w: "1.6fr" },
+    { t: "Fix", w: "1.6fr" },
+    { t: "Cost", w: ".65fr" },
+  ], 15), { hint: "Write down when it happens: <b>cold or hot, speed, gear, turning, braking, bumps</b>. That's half of finding it, and it's exactly what a shop will ask you." }),
+
+  build: () => page("build", "Build Plan", `
+    <div class="boxes" style="grid-template-columns:3fr 1fr;height:.95in;flex:none">
+      <div class="bx"><span class="lbl">Build goal</span><div class="lines" style="--lh:.27in"></div></div>
+      <div class="bx"><span class="lbl">Total budget</span><div style="flex:1;display:flex;align-items:flex-end;font:700 16pt 'Barlow Semi Condensed'">$</div></div>
+    </div>
+    <p class="note"><b>Phase 1</b> Make it reliable · <b>2</b> Make it stop and turn · <b>3</b> Make it faster · <b>4</b> Make it look right. Do them in order: a fast car that breaks down or can't stop isn't fun.</p>
+    ${table([
+      { t: "Phase", w: ".9fr", cell: opts("1  2  3  4"), cls: "c" },
+      { t: "Mod or job", w: "2fr" },
+      { t: "Why", w: "1.5fr" },
+      { t: "Parts needed", w: "1.8fr" },
+      { t: "Est. cost", w: ".75fr" },
+      { t: "Done", w: ".5fr", cell: box, cls: "c" },
+    ], 18)}`),
+
+  parts: () => page("parts", "Parts Inventory", table([
+    { t: "Part", w: "1.6fr" },
+    { t: "Brand & part #", w: "1.5fr" },
+    { t: "Bought from", w: "1fr" },
+    { t: "Price", w: ".65fr" },
+    { t: "Bought", w: ".75fr" },
+    { t: "Installed", w: ".75fr" },
+    { t: th2("Notes", "Warranty, return by"), w: "1.3fr" },
+  ], 25)),
+
+  budget: () => page("budget", "Budget Tracker", `
+    <div class="boxes" style="grid-template-columns:1fr 1fr 1fr;height:.72in;flex:none">
+      ${["Starting budget", "Spent so far", "Left"].map((l) => `<div class="bx"><span class="lbl">${l}</span><div style="flex:1;display:flex;align-items:flex-end;font:700 16pt 'Barlow Semi Condensed'">$</div></div>`).join("")}
+    </div>
+    <p class="note"><b>Type:</b> M maintenance · P parts &amp; mods · T tools · O other (registration, insurance, shipping). Circle one.</p>
+    ${table([
+      { t: "Date", w: ".8fr" },
+      { t: "Item", w: "2.6fr" },
+      { t: "Type", w: "1fr", cell: opts("M  P  T  O"), cls: "c" },
+      { t: "Amount", w: ".9fr" },
+      { t: "Running total", w: "1fr" },
+    ], 22)}`),
+
+  shopping: () => {
+    const half = (title, cols) => `<div style="display:flex;flex-direction:column;gap:6px;min-height:0">
+      <div class="sec">${title}</div>${table(cols, 25)}</div>`;
+    return page("shopping", "Shopping List", `<div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:.26in;min-height:0">
+      ${half("Parts to buy", [{ t: "", w: ".3fr", cell: box, cls: "c" }, { t: "Item", w: "2fr" }, { t: "Part #", w: "1.1fr" }, { t: "Price", w: ".75fr" }])}
+      ${half("Tools to get", [{ t: "", w: ".3fr", cell: box, cls: "c" }, { t: "Tool", w: "2fr" }, { t: "Size", w: ".8fr" }, { t: "Price", w: ".75fr" }])}
+    </div>`);
+  },
+
+  torque: () => page("torque", "Torque Specs", table([
+    { t: "Fastener", w: "2.2fr" },
+    { t: th2("Torque", "ft-lb / N·m"), w: "1fr" },
+    { t: "Socket", w: ".7fr" },
+    { t: "Thread locker", w: ".85fr", cell: opts("Y · N"), cls: "c" },
+    { t: th2("Notes", "Order, pattern, new bolts?"), w: "2fr" },
+  ], ["Lug nuts", "Oil drain plug", "Spark plugs", "Caliper bracket bolts", "Caliper slide pins", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]),
+    { hint: "<b>ft-lb × 1.356 = N·m</b> · <b>N·m × 0.738 = ft-lb</b> · <b>in-lb ÷ 12 = ft-lb</b>. Tighten wheels in a star pattern in two passes, and check the lug nuts again after the first 50 miles." }),
+
+  trackprep: () => page("trackprep", "Track Day Prep", `
+    <div style="display:flex;gap:.2in;flex:none">${inl("Event", 2)}${inl("Date", 1)}${inl("Run group", 1)}</div>
+    <div class="cols2" style="flex:none">
+      <div class="ckcol">
+        ${checks("The car, the week before", [
+          "Brake pads at least half left <em>F ____% R ____%</em>",
+          "Brake fluid fresh, high-temp type, bled",
+          "Tires: no cords, bulges or cuts",
+          "Wheel bearings: no play when you rock the wheel",
+          "Oil and coolant full, no leaks",
+          "Battery tied down, + terminal covered",
+          "Throttle snaps back on its own",
+          "Seat bolts and seatbelts tight",
+          "Tow point fitted, easy to find",
+        ])}
+        ${checks("The car, the night before", [
+          "Everything loose out: mats, trunk, cupholders",
+          "Car numbers ready (painter's tape works)",
+          "Lug nuts torqued to spec",
+          "Tank filled, receipt for fuel economy",
+          "Tech form filled in, if the event has one",
+        ])}
+      </div>
+      <div class="ckcol">
+        ${checks("Pack", [
+          "Helmet that meets the event's rating rule",
+          "License, registration, event confirmation",
+          "Torque wrench and the lug socket",
+          "Tire pressure gauge",
+          "Air pump or compressor",
+          "Jack, jack stands, wheel chocks",
+          "Basic socket set, pliers, screwdrivers",
+          "Spare pads, 1 bottle brake fluid",
+          "1 quart / litre of oil, coolant or water",
+          "Zip ties, duct tape, shop towels, gloves",
+        ])}
+        ${checks("For you", [
+          "Water, snacks, sunscreen, hat",
+          "Folding chair, layers for the weather",
+          "Phone mount, lap timer, charger",
+          "This log and a pen",
+        ])}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:.1in;flex:none">
+      <div class="sec">Day schedule</div>
+      <div style="display:flex;gap:.2in">${inl("Gates open", 1)}${inl("Tech", 1)}${inl("Drivers meeting", 1.2)}${inl("First session", 1.1)}</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0"><div class="sec">Fix before next time</div><div class="lines" style="--lh:.3in"></div></div>
+    <p class="note">Every event has its own tech and helmet rules. <b>Read theirs before you go</b>, and check the car again after every session.</p>`, { car: true }),
+
+  track: () => {
+    const setupRow = (label, n, labels) => `<div style="display:grid;grid-template-columns:1.25in repeat(${n},1fr);gap:6px;align-items:end">
+      <span class="lbl">${label}</span>${labels.map((l) => inl(l)).join("")}</div>`;
+    return page("track", "Track Day Log", `
+      <div style="display:flex;flex-direction:column;gap:.1in;flex:none">
+        <div style="display:flex;gap:.2in">${inl("Date", 1)}${inl("Track / event", 2.2)}${inl("Layout", 1.1)}</div>
+        <div style="display:flex;gap:.2in">${inl("Weather", 1.6)}${inl("Air temp", 1)}${inl("Track temp", 1)}</div>
+        <div style="display:flex;gap:.2in">${inl("Tires", 2)}${inl("Heat cycles", 1)}${inl("Fuel", .8)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.09in;flex:none">
+        <div class="sec">Setup</div>
+        ${setupRow("Cold pressure", 4, ["FL", "FR", "RL", "RR"])}
+        ${setupRow("Camber", 4, ["FL", "FR", "RL", "RR"])}
+        ${setupRow("Toe", 2, ["Front", "Rear"])}
+        ${setupRow("Dampers / bars", 2, ["Front", "Rear"])}
+      </div>
+      <div class="sec" style="flex:none">Sessions</div>
+      <div style="flex:1;display:flex;min-height:0">${table([
+        { t: "#", w: ".35fr", cls: "c strong" },
+        { t: "Time", w: ".6fr" },
+        { t: "Laps", w: ".5fr" },
+        { t: "Best lap", w: ".85fr" },
+        { t: th2("Hot pressure", "FL · FR · RL · RR"), w: "1.5fr", cell: `<span class="quad"><i>FL</i><i>FR</i><i>RL</i><i>RR</i></span>` },
+        { t: th2("Notes", "How it felt, what changed"), w: "2.6fr" },
+      ], ["1", "2", "3", "4", "5", "6"])}</div>
+      <div style="flex:none;height:1.05in;display:flex;flex-direction:column"><div class="sec">Change for next time</div><div class="lines" style="--lh:.3in"></div></div>`);
+  },
+
+  inspect: () => page("inspect", "Used Car Inspection", `
+    <div style="display:flex;gap:.2in;flex:none">${inl("Car", 2.2)}${inl("Seller", 1.4)}${inl("Asking $", 1)}${inl("Date", .9)}</div>
+    <div class="cols2" style="flex:none">
+      <div class="ckcol">
+        ${checks("Before you go", [
+          "Ask them not to start it before you get there",
+          "Run the VIN: title brands, accidents, recalls",
+          "Bring a flashlight, magnet, rag, OBD-II scanner",
+        ])}
+        ${checks("Paperwork", [
+          "Title in the seller's name, no lien",
+          "VIN matches title, dash and door sticker",
+          "Clean title: not salvage, rebuilt or flood",
+          "Service records or receipts",
+        ])}
+        ${checks("Body & rust", [
+          "Rockers, wheel arches, quarter panels",
+          "Floors, trunk floor, spare tire well",
+          "Frame rails and subframe mounts",
+          "Even panel gaps, paint matches",
+          "Magnet sticks everywhere <em>(no thick filler)</em>",
+          "No overspray on rubber or trim",
+        ])}
+        ${checks("Under the hood, cold", [
+          "Starts easily, no smoke at startup",
+          "Oil full and clean, no milky gunk under the cap",
+          "Coolant clean, not oily or rusty",
+          "No oil, coolant or fluid leaks",
+          "Belts and hoses not cracked",
+          "No ticking, knocking or rattling",
+        ])}
+      </div>
+      <div class="ckcol">
+        ${checks("Underneath", [
+          "No fresh drips on the ground",
+          "Exhaust intact, no loud leaks",
+          "CV boots not torn, no grease sprayed around",
+          "Bushings and ball joints not cracked or loose",
+        ])}
+        ${checks("Inside", [
+          "Warning lights come on at key-on, then go off",
+          "Pedal, seat and wheel wear fit the miles",
+          "A/C cold, heat hot, fan on every speed",
+          "Windows, locks, mirrors, wipers, horn, lights",
+          "No damp carpet or musty smell",
+        ])}
+        ${checks("Test drive", [
+          "Clutch doesn't slip, bite point not at the very top",
+          "Shifts smooth, no grinding or clunks",
+          "Tracks straight, steering wheel centered",
+          "Brakes straight, no pulsing or grinding",
+          "No clunks over bumps",
+          "Temperature stays in the middle",
+          "Scanner: no codes, readiness monitors set",
+        ])}
+        ${checks("Tires & brakes", [
+          "Even tread wear <em>(uneven = alignment)</em>",
+          "Tire date codes under 6 years old",
+          "Rotors not deeply grooved or lipped",
+        ])}
+      </div>
+    </div>
+    <div class="boxes" style="grid-template-columns:3fr 1fr;flex:1;min-height:.9in">
+      <div class="bx"><span class="lbl">What it needs right away</span><div class="lines" style="--lh:.28in"></div></div>
+      <div class="bx"><span class="lbl">Cost of what it needs</span><div style="flex:1;display:flex;align-items:flex-end;font:700 16pt 'Barlow Semi Condensed'">$</div></div>
+    </div>
+    <div style="display:flex;gap:.22in;align-items:flex-end;flex:none;border-top:1.4pt solid var(--ink);padding-top:8px">
+      <span class="sec">Verdict</span>
+      <span class="ck" style="border:0;padding:0">${box}<span>Buy it</span></span>
+      <span class="ck" style="border:0;padding:0">${box}<span>Walk away</span></span>
+      ${inl("Offer $", 1)}
+    </div>`, { car: false }),
+
+  compare: () => page("compare", "Compare Cars", table([
+    { t: "", w: "1.55fr" },
+    { t: "Car A", w: "1fr" },
+    { t: "Car B", w: "1fr" },
+    { t: "Car C", w: "1fr" },
+  ], ["Year, make, model", "Seller & phone", "Asking price", "Miles", "Clean title?", "Rust (1–5)", "Engine (1–5)", "Transmission (1–5)", "Suspension & brakes (1–5)", "Body & paint (1–5)", "Interior (1–5)", "Records?", "Mods: good or bad?", "Needs right away", "Cost of what it needs", "Real price (asking + needs)", "My offer"],
+    { rowCls: { 15: "hl strong", 16: "strong" } }),
+    { car: false, hint: "Score 1 (bad) to 5 (great). <b>The real price is the asking price plus everything it needs right away.</b> Compare real prices, not asking prices." }),
+
+  journal: () => {
+    const entry = `<div style="flex:1;display:flex;flex-direction:column;gap:6px;min-height:0">
+      <div style="display:flex;gap:.2in">${inl("Date", 1)}${inl("Miles", 1)}${inl("Hours", .7)}${inl("Spent $", .9)}</div>
+      <div class="lines"></div></div>`;
+    return page("journal", "Build Journal", `${entry}<div style="height:1.4pt;background:var(--ink);flex:none"></div>${entry}`, { hint: "What you did, what went wrong, what you learned, what's next. Future you will want to know." });
+  },
+};
+
+document.getElementById("out").innerHTML = ONLY.map((id) => PAGES[id]()).join("");
+
+/* the cover title fills the space left of the stripes */
+document.fonts.ready.then(() => {
+  const t = document.getElementById("cvt");
+  if (t) {
+    const room = t.clientWidth - t.parentElement.querySelector(".stripes").getBoundingClientRect().width * 0.72;
+    let size = 84;
+    const widest = () => Math.max(...[...t.querySelectorAll("span")].map((s) => s.getBoundingClientRect().width));
+    while (widest() > room && size > 30) { size -= 1; t.style.fontSize = size + "pt"; }
+  }
+  window.READY = true;
+});
+</script>
+</body>
+</html>
